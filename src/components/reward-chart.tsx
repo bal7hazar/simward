@@ -110,9 +110,15 @@ export function RewardChart({ params }: RewardChartProps) {
     )
   }
 
-  // Generate custom ticks for X axis (all integers from 0 to P)
+  // Generate custom ticks for X axis (only even numbers)
   const xAxisTicks = useMemo(() => {
-    return Array.from({ length: P + 1 }, (_, i) => i)
+    const ticks = []
+    for (let i = 0; i <= P; i++) {
+      if (i % 2 === 0) {
+        ticks.push(i)
+      }
+    }
+    return ticks
   }, [P])
 
   interface TooltipPayload {
