@@ -140,7 +140,7 @@ export function RewardChart({ params }: RewardChartProps) {
             <p className="text-sm" style={{ color: 'hsl(var(--primary))' }}>
               Reward: {data.y} (${data.yUsd.toFixed(4)})
             </p>
-            <p className="text-sm" style={{ color: 'hsl(var(--chart-2))' }}>
+            <p className="text-sm" style={{ color: 'hsl(var(--primary))' }}>
               Cumulative: {data.cumulative} (${data.cumulativeUsd.toFixed(4)})
             </p>
           </div>
@@ -208,13 +208,13 @@ export function RewardChart({ params }: RewardChartProps) {
                 <ReferenceLine
                   yAxisId="right"
                   x={breakEvenPoint.p}
-                  stroke="hsl(var(--chart-3))"
+                  stroke="hsl(var(--chart-1))"
                   strokeDasharray="5 5"
                   strokeWidth={2}
                   label={{
                     value: 'Break Even',
-                    position: 'bottom',
-                    fill: 'hsl(var(--chart-3))',
+                    position: 'top',
+                    fill: 'hsl(var(--chart-1))',
                     fontSize: 12,
                     offset: 10,
                   }}
@@ -234,7 +234,7 @@ export function RewardChart({ params }: RewardChartProps) {
                 yAxisId="left"
                 type="monotone"
                 dataKey="cumulative"
-                stroke="hsl(var(--chart-2))"
+                stroke="hsl(var(--primary))"
                 strokeWidth={2}
                 dot={false}
                 isAnimationActive={false}
@@ -255,7 +255,7 @@ export function RewardChart({ params }: RewardChartProps) {
                 yAxisId="right"
                 type="monotone"
                 dataKey="cumulativeUsd"
-                stroke="hsl(var(--chart-2))"
+                stroke="hsl(var(--primary))"
                 strokeWidth={0}
                 dot={false}
                 isAnimationActive={false}
@@ -267,7 +267,7 @@ export function RewardChart({ params }: RewardChartProps) {
                   yAxisId="right"
                   data={breakEvenData}
                   dataKey="cumulativeUsd"
-                  fill="hsl(var(--chart-3))"
+                  fill="hsl(var(--chart-1))"
                   shape={renderStar}
                   isAnimationActive={false}
                 />
