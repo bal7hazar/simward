@@ -25,17 +25,17 @@ interface RewardChartProps {
 export function RewardChart({ params }: RewardChartProps) {
   const { a, k, P, T, S } = params
 
-  // Générer les données de la courbe
+  // Generate curve data
   const chartData = useMemo(() => {
     const data = []
-    const step = P / 100 // 100 points sur la courbe
+    const step = P / 100 // 100 points on the curve
 
     for (let p = 0; p <= P; p += step) {
-      // Formule: y = a * (1 - (S - T)/T) / (P^k - p^k)
+      // Formula: y = a * (1 - (S - T)/T) / (P^k - p^k)
       const numerator = a * (1 - (S - T) / T)
       const denominator = P ** k - p ** k
 
-      // Éviter la division par zéro
+      // Avoid division by zero
       const y = denominator !== 0 ? numerator / denominator : 0
 
       data.push({
@@ -74,7 +74,7 @@ export function RewardChart({ params }: RewardChartProps) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Formule</CardTitle>
+          <CardTitle>Formula</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center text-lg p-4 bg-muted rounded-lg">
@@ -85,7 +85,7 @@ export function RewardChart({ params }: RewardChartProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Courbe des Rewards</CardTitle>
+          <CardTitle>Reward Curve</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>

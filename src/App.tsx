@@ -22,9 +22,7 @@ function App() {
           <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-50 mb-2">
             Simward
           </h1>
-          <p className="text-slate-600 dark:text-slate-400">
-            Simulateur de courbes de reward pour jeux
-          </p>
+          <p className="text-slate-600 dark:text-slate-400">Reward curve simulator for games</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

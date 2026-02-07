@@ -15,17 +15,17 @@ interface SimulationInputsProps {
 
 export function SimulationInputs({ params, onParamChange }: SimulationInputsProps) {
   const inputs = [
-    { key: 'a', label: 'Constante a', description: 'Facteur de customisation' },
-    { key: 'k', label: 'Constante k', description: 'Exposant de customisation' },
-    { key: 'P', label: 'Performance max (P)', description: 'Performance maximale' },
-    { key: 'T', label: 'Target (T)', description: 'Valeur cible' },
-    { key: 'S', label: 'Valeur courante (S)', description: 'Valeur actuelle' },
+    { key: 'a', label: 'Constant a', description: 'Customization factor' },
+    { key: 'k', label: 'Constant k', description: 'Customization exponent' },
+    { key: 'P', label: 'Max Performance (P)', description: 'Maximum performance value' },
+    { key: 'T', label: 'Target (T)', description: 'Target value' },
+    { key: 'S', label: 'Current Value (S)', description: 'Current value' },
   ]
 
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>Paramètres</CardTitle>
+        <CardTitle>Parameters</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {inputs.map(({ key, label, description }) => (
