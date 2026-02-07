@@ -52,11 +52,11 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
   }
 
   return (
-    <Card className="h-full min-h-full">
+    <Card className="h-full">
       <CardHeader>
         <CardTitle>Parameters</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 lg:max-h-[calc(100vh-20rem)] lg:overflow-y-auto scrollbar-hide">
         {/* Slider for constant a (logarithmic scale) */}
         <div className="space-y-3">
           <Label htmlFor="a-slider" className="text-sm font-medium">
