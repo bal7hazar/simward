@@ -26,12 +26,13 @@ interface RewardChartProps {
 export function RewardChart({ params }: RewardChartProps) {
   const { a, b, k, P, T, S } = params
 
-  // Generate curve data
+  // Generate curve data with cumulative rewards
   const chartData = useMemo(() => {
     const data = []
     // Use P as number of points for small values, max 50 for larger values
     const pointCount = Math.min(P, 50)
     const step = P / pointCount
+    let cumulativeReward = 0
 
     for (let p = 0; p <= P; p += step) {
       // Formula: y = a * (1 - (S - T)/T) / ((P+b)^k - p^k) - a * (1 - (S - T)/T) / (P+b)^k
@@ -44,9 +45,16 @@ export function RewardChart({ params }: RewardChartProps) {
       const y2 = term2 !== 0 ? numerator / term2 : 0
       const y = y1 - y2
 
+      // Calculate cumulative reward using trapezoidal rule
+      if (data.length > 0) {
+        const prevY = data[data.length - 1].y
+        cumulativeReward += ((prevY + y) / 2) * step
+      }
+
       data.push({
         p: Number(p.toFixed(2)),
         y: Number(y.toFixed(2)),
+        cumulative: Number(cumulativeReward.toFixed(2)),
       })
     }
 
@@ -61,8 +69,10 @@ export function RewardChart({ params }: RewardChartProps) {
   }, [P])
 
   interface TooltipPayload {
-    payload: { p: number; y: number }
+    payload: { p: number; y: number; cumulative: number }
     value: number
+    name?: string
+    dataKey?: string
   }
 
   const CustomTooltip = ({
@@ -76,7 +86,15 @@ export function RewardChart({ params }: RewardChartProps) {
       return (
         <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
           <p className="text-sm font-medium">Performance: {payload[0].payload.p}</p>
-          <p className="text-sm text-primary">Reward: {payload[0].value}</p>
+          {payload.map((entry) => (
+            <p
+              key={entry.dataKey}
+              className="text-sm"
+              style={{ color: entry.name === 'y' ? 'hsl(var(--primary))' : 'hsl(var(--chart-2))' }}
+            >
+              {entry.name === 'y' ? 'Reward' : 'Cumulative'}: {entry.value}
+            </p>
+          ))}
         </div>
       )
     }
@@ -113,15 +131,35 @@ export function RewardChart({ params }: RewardChartProps) {
                 ticks={xAxisTicks}
                 label={{ value: 'Performance (p)', position: 'insideBottom', offset: -10 }}
               />
-              <YAxis label={{ value: 'Reward (y)', angle: -90, position: 'insideLeft' }} />
+              <YAxis
+                yAxisId="left"
+                label={{ value: 'Reward (y)', angle: -90, position: 'insideLeft' }}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                label={{ value: 'Cumulative', angle: 90, position: 'insideRight' }}
+              />
               <Tooltip content={<CustomTooltip />} />
               <Line
+                yAxisId="left"
                 type="monotone"
                 dataKey="y"
                 stroke="hsl(var(--primary))"
                 strokeWidth={2}
                 dot={false}
                 isAnimationActive={false}
+                name="y"
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="cumulative"
+                stroke="hsl(var(--chart-2))"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+                name="cumulative"
               />
             </LineChart>
           </ResponsiveContainer>
