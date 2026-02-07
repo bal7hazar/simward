@@ -74,6 +74,14 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
               <span>10T</span>
             </div>
           </div>
+          <Input
+            id="a-input"
+            type="number"
+            step="1000000"
+            value={params.a}
+            onChange={(e) => onParamChange('a', Number.parseFloat(e.target.value) || 0)}
+            className="w-full"
+          />
           <p className="text-xs text-muted-foreground">Customization factor (logarithmic scale)</p>
         </div>
 
