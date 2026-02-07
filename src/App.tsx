@@ -32,7 +32,7 @@ function App() {
           <div className="lg:col-span-1">
             <SimulationInputs params={params} onParamChange={handleParamChange} />
           </div>
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 lg:sticky lg:top-8 lg:self-start">
             <RewardChart params={params} />
           </div>
         </div>
