@@ -17,6 +17,7 @@ interface SimulationInputsProps {
 
 export function SimulationInputs({ params, onParamChange }: SimulationInputsProps) {
   const maxA = 10_000_000_000_000 // 10 trillion
+  const maxLogValue = 130 // log scale: 10^(130/10) = 10^13 = 10T
 
   const inputs = [
     { key: 'k', label: 'Constant k', description: 'Customization exponent' },
@@ -29,13 +30,30 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
     return new Intl.NumberFormat('en-US').format(num)
   }
 
+  // Convert actual value to log scale (0-130)
+  const getLogValue = (value: number): number => {
+    if (value === 0) return 0
+    return Math.log10(value) * 10
+  }
+
+  // Convert log scale (0-130) to actual value
+  const getActualValue = (logValue: number): number => {
+    if (logValue === 0) return 0
+    return 10 ** (logValue / 10)
+  }
+
+  const handleLogSliderChange = (values: number[]) => {
+    const actualValue = getActualValue(values[0])
+    onParamChange('a', actualValue)
+  }
+
   return (
     <Card className="h-full">
       <CardHeader>
         <CardTitle>Parameters</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Slider for constant a */}
+        {/* Slider for constant a (logarithmic scale) */}
         <div className="space-y-3">
           <Label htmlFor="a-slider" className="text-sm font-medium">
             Constant a
@@ -44,10 +62,10 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
             <Slider
               id="a-slider"
               min={0}
-              max={maxA}
-              step={10_000_000}
-              value={[params.a]}
-              onValueChange={(values) => onParamChange('a', values[0])}
+              max={maxLogValue}
+              step={1}
+              value={[getLogValue(params.a)]}
+              onValueChange={handleLogSliderChange}
               className="w-full"
             />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -56,7 +74,7 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
               <span>10T</span>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">Customization factor</p>
+          <p className="text-xs text-muted-foreground">Customization factor (logarithmic scale)</p>
         </div>
 
         {/* Slider for constant b */}
