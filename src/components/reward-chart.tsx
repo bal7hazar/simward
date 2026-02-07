@@ -131,18 +131,9 @@ export function RewardChart({ params }: RewardChartProps) {
                 ticks={xAxisTicks}
                 label={{ value: 'Performance (p)', position: 'insideBottom', offset: -10 }}
               />
-              <YAxis
-                yAxisId="left"
-                label={{ value: 'Reward (y)', angle: -90, position: 'insideLeft' }}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                label={{ value: 'Cumulative', angle: 90, position: 'insideRight' }}
-              />
+              <YAxis label={{ value: 'Rewards', angle: -90, position: 'insideLeft' }} />
               <Tooltip content={<CustomTooltip />} />
               <Line
-                yAxisId="left"
                 type="monotone"
                 dataKey="y"
                 stroke="hsl(var(--primary))"
@@ -152,7 +143,6 @@ export function RewardChart({ params }: RewardChartProps) {
                 name="y"
               />
               <Line
-                yAxisId="right"
                 type="monotone"
                 dataKey="cumulative"
                 stroke="hsl(var(--chart-2))"
