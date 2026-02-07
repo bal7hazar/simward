@@ -137,7 +137,7 @@ export function RewardChart({ params }: RewardChartProps) {
         <div className="bg-background border border-border rounded-lg p-3 shadow-lg space-y-1">
           <p className="text-sm font-medium border-b border-border pb-1">Performance: {data.p}</p>
           <div className="space-y-0.5">
-            <p className="text-sm" style={{ color: '#3b82f6' }}>
+            <p className="text-sm" style={{ color: '#1f2937' }}>
               Reward: {data.y} (${data.yUsd.toFixed(4)})
             </p>
             <p className="text-sm" style={{ color: '#3b82f6' }}>
@@ -224,7 +224,7 @@ export function RewardChart({ params }: RewardChartProps) {
                 yAxisId="left"
                 type="monotone"
                 dataKey="y"
-                stroke="#3b82f6"
+                stroke="#1f2937"
                 strokeWidth={2}
                 dot={false}
                 isAnimationActive={false}
@@ -244,7 +244,7 @@ export function RewardChart({ params }: RewardChartProps) {
                 yAxisId="right"
                 type="monotone"
                 dataKey="yUsd"
-                stroke="#3b82f6"
+                stroke="#1f2937"
                 strokeWidth={0}
                 dot={false}
                 isAnimationActive={false}
