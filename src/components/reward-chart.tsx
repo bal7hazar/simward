@@ -206,6 +206,7 @@ export function RewardChart({ params }: RewardChartProps) {
               />
               {breakEvenPoint && (
                 <ReferenceLine
+                  yAxisId="right"
                   x={breakEvenPoint.p}
                   stroke="hsl(var(--chart-3))"
                   strokeDasharray="5 5"
