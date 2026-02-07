@@ -137,10 +137,10 @@ export function RewardChart({ params }: RewardChartProps) {
         <div className="bg-background border border-border rounded-lg p-3 shadow-lg space-y-1">
           <p className="text-sm font-medium border-b border-border pb-1">Performance: {data.p}</p>
           <div className="space-y-0.5">
-            <p className="text-sm" style={{ color: 'hsl(var(--primary))' }}>
+            <p className="text-sm" style={{ color: '#3b82f6' }}>
               Reward: {data.y} (${data.yUsd.toFixed(4)})
             </p>
-            <p className="text-sm" style={{ color: 'hsl(var(--primary))' }}>
+            <p className="text-sm" style={{ color: '#3b82f6' }}>
               Cumulative: {data.cumulative} (${data.cumulativeUsd.toFixed(4)})
             </p>
           </div>
@@ -194,13 +194,13 @@ export function RewardChart({ params }: RewardChartProps) {
               <ReferenceLine
                 yAxisId="right"
                 y={entryFee}
-                stroke="hsl(var(--destructive))"
+                stroke="#ef4444"
                 strokeDasharray="5 5"
                 strokeWidth={2}
                 label={{
                   value: `Entry Fee: $${entryFee.toFixed(2)}`,
                   position: 'right',
-                  fill: 'hsl(var(--destructive))',
+                  fill: '#ef4444',
                   fontSize: 12,
                 }}
               />
@@ -208,13 +208,13 @@ export function RewardChart({ params }: RewardChartProps) {
                 <ReferenceLine
                   yAxisId="right"
                   x={breakEvenPoint.p}
-                  stroke="hsl(var(--chart-1))"
+                  stroke="#22c55e"
                   strokeDasharray="5 5"
                   strokeWidth={2}
                   label={{
                     value: 'Break Even',
                     position: 'top',
-                    fill: 'hsl(var(--chart-1))',
+                    fill: '#22c55e',
                     fontSize: 12,
                     offset: 10,
                   }}
@@ -224,7 +224,7 @@ export function RewardChart({ params }: RewardChartProps) {
                 yAxisId="left"
                 type="monotone"
                 dataKey="y"
-                stroke="hsl(var(--primary))"
+                stroke="#3b82f6"
                 strokeWidth={2}
                 dot={false}
                 isAnimationActive={false}
@@ -234,7 +234,7 @@ export function RewardChart({ params }: RewardChartProps) {
                 yAxisId="left"
                 type="monotone"
                 dataKey="cumulative"
-                stroke="hsl(var(--primary))"
+                stroke="#3b82f6"
                 strokeWidth={2}
                 dot={false}
                 isAnimationActive={false}
@@ -244,7 +244,7 @@ export function RewardChart({ params }: RewardChartProps) {
                 yAxisId="right"
                 type="monotone"
                 dataKey="yUsd"
-                stroke="hsl(var(--primary))"
+                stroke="#3b82f6"
                 strokeWidth={0}
                 dot={false}
                 isAnimationActive={false}
@@ -255,7 +255,7 @@ export function RewardChart({ params }: RewardChartProps) {
                 yAxisId="right"
                 type="monotone"
                 dataKey="cumulativeUsd"
-                stroke="hsl(var(--primary))"
+                stroke="#3b82f6"
                 strokeWidth={0}
                 dot={false}
                 isAnimationActive={false}
@@ -267,7 +267,7 @@ export function RewardChart({ params }: RewardChartProps) {
                   yAxisId="right"
                   data={breakEvenData}
                   dataKey="cumulativeUsd"
-                  fill="hsl(var(--chart-1))"
+                  fill="#22c55e"
                   shape={renderStar}
                   isAnimationActive={false}
                 />
