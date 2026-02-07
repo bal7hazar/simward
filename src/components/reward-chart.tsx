@@ -104,14 +104,14 @@ export function RewardChart({ params }: RewardChartProps) {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 25 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="p"
                 type="number"
                 domain={[0, P]}
                 ticks={xAxisTicks}
-                label={{ value: 'Performance (p)', position: 'insideBottom', offset: -5 }}
+                label={{ value: 'Performance (p)', position: 'insideBottom', offset: -10 }}
               />
               <YAxis label={{ value: 'Reward (y)', angle: -90, position: 'insideLeft' }} />
               <Tooltip content={<CustomTooltip />} />
