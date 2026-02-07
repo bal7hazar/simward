@@ -10,6 +10,7 @@ function App() {
     P: 20,
     T: 1000000000,
     S: 1000000000,
+    price: 0.0001,
   })
 
   const handleParamChange = (key: string, value: number) => {

@@ -20,11 +20,12 @@ interface RewardChartProps {
     P: number
     T: number
     S: number
+    price: number
   }
 }
 
 export function RewardChart({ params }: RewardChartProps) {
-  const { a, b, k, P, T, S } = params
+  const { a, b, k, P, T, S, price } = params
 
   // Generate curve data with cumulative rewards
   const chartData = useMemo(() => {
@@ -55,11 +56,13 @@ export function RewardChart({ params }: RewardChartProps) {
         p: Number(p.toFixed(2)),
         y: Number(y.toFixed(2)),
         cumulative: Number(cumulativeReward.toFixed(2)),
+        yUsd: Number((y * price).toFixed(4)),
+        cumulativeUsd: Number((cumulativeReward * price).toFixed(4)),
       })
     }
 
     return data
-  }, [a, b, k, P, T, S])
+  }, [a, b, k, P, T, S, price])
 
   // Generate custom ticks for X axis (max 10 ticks)
   const xAxisTicks = useMemo(() => {
@@ -69,7 +72,7 @@ export function RewardChart({ params }: RewardChartProps) {
   }, [P])
 
   interface TooltipPayload {
-    payload: { p: number; y: number; cumulative: number }
+    payload: { p: number; y: number; cumulative: number; yUsd: number; cumulativeUsd: number }
     value: number
     name?: string
     dataKey?: string
@@ -83,18 +86,18 @@ export function RewardChart({ params }: RewardChartProps) {
     payload?: TooltipPayload[]
   }) => {
     if (active && payload && payload.length) {
+      const data = payload[0].payload
       return (
-        <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
-          <p className="text-sm font-medium">Performance: {payload[0].payload.p}</p>
-          {payload.map((entry) => (
-            <p
-              key={entry.dataKey}
-              className="text-sm"
-              style={{ color: entry.name === 'y' ? 'hsl(var(--primary))' : 'hsl(var(--chart-2))' }}
-            >
-              {entry.name === 'y' ? 'Reward' : 'Cumulative'}: {entry.value}
+        <div className="bg-background border border-border rounded-lg p-3 shadow-lg space-y-1">
+          <p className="text-sm font-medium border-b border-border pb-1">Performance: {data.p}</p>
+          <div className="space-y-0.5">
+            <p className="text-sm" style={{ color: 'hsl(var(--primary))' }}>
+              Reward: {data.y} (${data.yUsd.toFixed(4)})
             </p>
-          ))}
+            <p className="text-sm" style={{ color: 'hsl(var(--chart-2))' }}>
+              Cumulative: {data.cumulative} (${data.cumulativeUsd.toFixed(4)})
+            </p>
+          </div>
         </div>
       )
     }
@@ -131,9 +134,19 @@ export function RewardChart({ params }: RewardChartProps) {
                 ticks={xAxisTicks}
                 label={{ value: 'Performance (p)', position: 'insideBottom', offset: -10 }}
               />
-              <YAxis label={{ value: 'Rewards', angle: -90, position: 'insideLeft' }} />
+              <YAxis
+                yAxisId="left"
+                label={{ value: 'Rewards', angle: -90, position: 'insideLeft' }}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                label={{ value: 'USD', angle: 90, position: 'insideRight' }}
+                tickFormatter={(value) => `$${value.toFixed(2)}`}
+              />
               <Tooltip content={<CustomTooltip />} />
               <Line
+                yAxisId="left"
                 type="monotone"
                 dataKey="y"
                 stroke="hsl(var(--primary))"
@@ -143,6 +156,7 @@ export function RewardChart({ params }: RewardChartProps) {
                 name="y"
               />
               <Line
+                yAxisId="left"
                 type="monotone"
                 dataKey="cumulative"
                 stroke="hsl(var(--chart-2))"
@@ -150,6 +164,28 @@ export function RewardChart({ params }: RewardChartProps) {
                 dot={false}
                 isAnimationActive={false}
                 name="cumulative"
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="yUsd"
+                stroke="hsl(var(--primary))"
+                strokeWidth={0}
+                dot={false}
+                isAnimationActive={false}
+                name="yUsd"
+                opacity={0}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="cumulativeUsd"
+                stroke="hsl(var(--chart-2))"
+                strokeWidth={0}
+                dot={false}
+                isAnimationActive={false}
+                name="cumulativeUsd"
+                opacity={0}
               />
             </LineChart>
           </ResponsiveContainer>

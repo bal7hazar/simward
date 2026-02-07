@@ -11,6 +11,7 @@ interface SimulationInputsProps {
     P: number
     T: number
     S: number
+    price: number
   }
   onParamChange: (key: string, value: number) => void
 }
@@ -24,6 +25,7 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
     { key: 'P', label: 'Max Performance (P)', description: 'Maximum performance value' },
     { key: 'T', label: 'Target Supply (T)', description: 'Target supply value' },
     { key: 'S', label: 'Current Supply (S)', description: 'Current supply value' },
+    { key: 'price', label: 'Price (USD)', description: 'Price per reward token in USD' },
   ]
 
   const formatNumber = (num: number) => {
@@ -121,7 +123,7 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
             <Input
               id={key}
               type="number"
-              step="0.1"
+              step={key === 'price' ? '0.0001' : '0.1'}
               value={params[key as keyof typeof params]}
               onChange={(e) => onParamChange(key, Number.parseFloat(e.target.value) || 0)}
               className="w-full"
