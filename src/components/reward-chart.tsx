@@ -28,7 +28,9 @@ export function RewardChart({ params }: RewardChartProps) {
   // Generate curve data
   const chartData = useMemo(() => {
     const data = []
-    const step = P / 100 // 100 points on the curve
+    // Use P as number of points for small values, max 50 for larger values
+    const pointCount = Math.min(P, 50)
+    const step = P / pointCount
 
     for (let p = 0; p <= P; p += step) {
       // Formula: y = a * (1 - (S - T)/T) / (P^k - p^k)
@@ -39,13 +41,20 @@ export function RewardChart({ params }: RewardChartProps) {
       const y = denominator !== 0 ? numerator / denominator : 0
 
       data.push({
-        p: Math.round(p),
+        p: Number(p.toFixed(2)),
         y: Number(y.toFixed(2)),
       })
     }
 
     return data
   }, [a, k, P, T, S])
+
+  // Generate custom ticks for X axis (max 10 ticks)
+  const xAxisTicks = useMemo(() => {
+    const tickCount = Math.min(10, P + 1)
+    const step = P / (tickCount - 1)
+    return Array.from({ length: tickCount }, (_, i) => Math.round(i * step))
+  }, [P])
 
   interface TooltipPayload {
     payload: { p: number; y: number }
@@ -93,6 +102,9 @@ export function RewardChart({ params }: RewardChartProps) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="p"
+                type="number"
+                domain={[0, P]}
+                ticks={xAxisTicks}
                 label={{ value: 'Performance (p)', position: 'insideBottom', offset: -5 }}
               />
               <YAxis label={{ value: 'Reward (y)', angle: -90, position: 'insideLeft' }} />
