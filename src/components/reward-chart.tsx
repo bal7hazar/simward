@@ -110,11 +110,9 @@ export function RewardChart({ params }: RewardChartProps) {
     )
   }
 
-  // Generate custom ticks for X axis (max 10 ticks)
+  // Generate custom ticks for X axis (all integers from 0 to P)
   const xAxisTicks = useMemo(() => {
-    const tickCount = Math.min(10, P + 1)
-    const step = P / (tickCount - 1)
-    return Array.from({ length: tickCount }, (_, i) => Math.round(i * step))
+    return Array.from({ length: P + 1 }, (_, i) => i)
   }, [P])
 
   interface TooltipPayload {
