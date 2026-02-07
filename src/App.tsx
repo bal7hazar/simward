@@ -5,6 +5,7 @@ import { useState } from 'react'
 function App() {
   const [params, setParams] = useState({
     a: 270000000,
+    b: 0,
     k: 5,
     P: 23,
     T: 1000000000,

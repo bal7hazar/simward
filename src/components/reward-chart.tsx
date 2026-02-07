@@ -15,6 +15,7 @@ import {
 interface RewardChartProps {
   params: {
     a: number
+    b: number
     k: number
     P: number
     T: number
@@ -23,7 +24,7 @@ interface RewardChartProps {
 }
 
 export function RewardChart({ params }: RewardChartProps) {
-  const { a, k, P, T, S } = params
+  const { a, b, k, P, T, S } = params
 
   // Generate curve data
   const chartData = useMemo(() => {
@@ -33,9 +34,9 @@ export function RewardChart({ params }: RewardChartProps) {
     const step = P / pointCount
 
     for (let p = 0; p <= P; p += step) {
-      // Formula: y = a * (1 - (S - T)/T) / (P^k - p^k)
+      // Formula: y = a * (1 - (S - T)/T) / ((P+b)^k - p^k)
       const numerator = a * (1 - (S - T) / T)
-      const denominator = P ** k - p ** k
+      const denominator = (P + b) ** k - p ** k
 
       // Avoid division by zero
       const y = denominator !== 0 ? numerator / denominator : 0
@@ -47,7 +48,7 @@ export function RewardChart({ params }: RewardChartProps) {
     }
 
     return data
-  }, [a, k, P, T, S])
+  }, [a, b, k, P, T, S])
 
   // Generate custom ticks for X axis (max 10 ticks)
   const xAxisTicks = useMemo(() => {
@@ -87,7 +88,7 @@ export function RewardChart({ params }: RewardChartProps) {
         </CardHeader>
         <CardContent>
           <div className="text-center text-lg p-4 bg-muted rounded-lg">
-            <InlineMath math={String.raw`y = a \cdot \frac{1 - \frac{S - T}{T}}{P^k - p^k}`} />
+            <InlineMath math={String.raw`y = a \cdot \frac{1 - \frac{S - T}{T}}{(P+b)^k - p^k}`} />
           </div>
         </CardContent>
       </Card>

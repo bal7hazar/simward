@@ -6,6 +6,7 @@ import { Slider } from '@/components/ui/slider'
 interface SimulationInputsProps {
   params: {
     a: number
+    b: number
     k: number
     P: number
     T: number
@@ -56,6 +57,30 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Customization factor</p>
+        </div>
+
+        {/* Slider for constant b */}
+        <div className="space-y-3">
+          <Label htmlFor="b-slider" className="text-sm font-medium">
+            Constant b
+          </Label>
+          <div className="space-y-2">
+            <Slider
+              id="b-slider"
+              min={0}
+              max={10}
+              step={0.1}
+              value={[params.b]}
+              onValueChange={(values) => onParamChange('b', values[0])}
+              className="w-full"
+            />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>0</span>
+              <span className="font-medium text-foreground">{params.b.toFixed(1)}</span>
+              <span>10</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Performance offset</p>
         </div>
 
         {/* Regular inputs for other params */}
