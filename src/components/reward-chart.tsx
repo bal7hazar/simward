@@ -6,6 +6,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -21,11 +22,12 @@ interface RewardChartProps {
     T: number
     S: number
     price: number
+    entryFee: number
   }
 }
 
 export function RewardChart({ params }: RewardChartProps) {
-  const { a, b, k, P, T, S, price } = params
+  const { a, b, k, P, T, S, price, entryFee } = params
 
   // Generate curve data with cumulative rewards
   const chartData = useMemo(() => {
@@ -145,6 +147,19 @@ export function RewardChart({ params }: RewardChartProps) {
                 tickFormatter={(value) => `$${value.toFixed(2)}`}
               />
               <Tooltip content={<CustomTooltip />} />
+              <ReferenceLine
+                yAxisId="right"
+                y={entryFee}
+                stroke="hsl(var(--destructive))"
+                strokeDasharray="5 5"
+                strokeWidth={2}
+                label={{
+                  value: `Entry Fee: $${entryFee.toFixed(2)}`,
+                  position: 'right',
+                  fill: 'hsl(var(--destructive))',
+                  fontSize: 12,
+                }}
+              />
               <Line
                 yAxisId="left"
                 type="monotone"
