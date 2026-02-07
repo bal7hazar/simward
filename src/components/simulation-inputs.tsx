@@ -7,7 +7,6 @@ interface SimulationInputsProps {
     a: number
     k: number
     P: number
-    p: number
     T: number
     S: number
   }
@@ -19,7 +18,6 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
     { key: 'a', label: 'Constante a', description: 'Facteur de customisation' },
     { key: 'k', label: 'Constante k', description: 'Exposant de customisation' },
     { key: 'P', label: 'Performance max (P)', description: 'Performance maximale' },
-    { key: 'p', label: 'Performance courante (p)', description: 'Performance actuelle' },
     { key: 'T', label: 'Target (T)', description: 'Valeur cible' },
     { key: 'S', label: 'Valeur courante (S)', description: 'Valeur actuelle' },
   ]

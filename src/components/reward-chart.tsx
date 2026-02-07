@@ -17,7 +17,6 @@ interface RewardChartProps {
     a: number
     k: number
     P: number
-    p: number
     T: number
     S: number
   }

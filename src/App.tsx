@@ -4,12 +4,11 @@ import { useState } from 'react'
 
 function App() {
   const [params, setParams] = useState({
-    a: 100,
-    k: 2,
-    P: 100,
-    p: 50,
-    T: 1000,
-    S: 500,
+    a: 270000000,
+    k: 5,
+    P: 23,
+    T: 1000000000,
+    S: 1000000000,
   })
 
   const handleParamChange = (key: string, value: number) => {
