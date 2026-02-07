@@ -52,7 +52,7 @@ pnpm install
 pnpm dev
 ```
 
-Ouvrez http://localhost:5173/simward/ dans votre navigateur.
+Ouvrez http://localhost:5173/ dans votre navigateur.
 
 ### 2. Pousser sur GitHub
 
@@ -72,6 +72,8 @@ git push origin main
 1. Allez sur https://github.com/[votre-username]/simward/settings/pages
 2. Dans **Source**, sélectionnez **GitHub Actions**
 3. Le déploiement se fera automatiquement !
+
+**Note importante** : Pour que le site soit accessible à la racine (`https://[username].github.io/`), renommez votre dépôt en `[username].github.io`. Sinon, le site sera accessible à `https://[username].github.io/simward/` et vous devrez modifier `base: '/'` en `base: '/simward/'` dans `vite.config.ts`.
 
 Votre site sera accessible sur : `https://[votre-username].github.io/simward/`
 

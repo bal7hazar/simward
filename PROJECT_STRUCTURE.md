@@ -119,10 +119,16 @@ import { cn } from '@/lib/utils'
 
 ## Base URL
 
-La base URL est configurée pour GitHub Pages dans `vite.config.ts` :
+La base URL est configurée à la racine dans `vite.config.ts` :
 
 ```typescript
-base: '/simward/'
+base: '/'
 ```
 
-Si vous changez le nom du dépôt, mettez à jour cette valeur.
+**Important** : Cette configuration fonctionne si votre dépôt est nommé `[username].github.io`.
+
+Si votre dépôt a un autre nom (ex: `simward`), vous devez modifier la base pour correspondre au nom du dépôt :
+
+```typescript
+base: '/simward/'  // Remplacez par le nom de votre dépôt
+```

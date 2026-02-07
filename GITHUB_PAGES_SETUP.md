@@ -39,10 +39,14 @@ git push origin main
 Une fois le déploiement terminé (vérifiez l'onglet **Actions** de votre dépôt), votre site sera accessible à :
 
 ```
-https://[votre-username].github.io/simward/
+https://[votre-username].github.io/
 ```
 
 Remplacez `[votre-username]` par votre nom d'utilisateur GitHub.
+
+**Note importante** : Pour que l'application soit servie à la racine de votre domaine GitHub Pages, le dépôt doit avoir le nom `[votre-username].github.io`. Si votre dépôt a un autre nom (comme `simward`), vous devrez soit :
+- Renommer le dépôt en `[votre-username].github.io`
+- Ou configurer un domaine personnalisé dans les settings GitHub Pages
 
 ## Configuration de la Base URL
 
@@ -51,11 +55,17 @@ La base URL est configurée dans `vite.config.ts` :
 ```typescript
 export default defineConfig({
   // ...
-  base: '/simward/',
+  base: '/',
 })
 ```
 
-Si vous changez le nom de votre dépôt, n'oubliez pas de mettre à jour cette valeur.
+**Important** : Pour que l'application soit accessible à la racine (`https://[username].github.io/`), votre dépôt doit avoir le nom `[username].github.io` (dépôt utilisateur/organisation).
+
+Si vous utilisez un dépôt projet (ex: `simward`), l'URL sera `https://[username].github.io/simward/` et vous devrez modifier la base :
+
+```typescript
+base: '/simward/',  // Nom du dépôt
+```
 
 ## Permissions Requises
 
@@ -90,4 +100,4 @@ pnpm build
 pnpm preview
 ```
 
-Le site sera accessible à `http://localhost:4173/simward/`
+Le site sera accessible à `http://localhost:4173/`

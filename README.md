@@ -72,7 +72,7 @@ pnpm format
 
 L'application est automatiquement déployée sur GitHub Pages lors d'un push sur la branche `main`.
 
-Le site est accessible à l'adresse: `https://[votre-username].github.io/simward/`
+Le site est accessible à l'adresse: `https://[votre-username].github.io/`
 
 ### Configuration GitHub Pages
 

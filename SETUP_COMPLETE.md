@@ -140,8 +140,10 @@ Biome vérifie et formate le code automatiquement.
 
 Une fois poussé sur `main`, votre site sera disponible à :
 ```
-https://[votre-username].github.io/simward/
+https://[votre-username].github.io/
 ```
+
+**Note** : Pour que le site soit à la racine, votre dépôt doit être nommé `[votre-username].github.io`. Si ce n'est pas le cas, renommez-le dans les Settings GitHub ou le site sera accessible à `https://[votre-username].github.io/[nom-du-repo]/`.
 
 ## 💡 Astuces
 
@@ -150,8 +152,9 @@ https://[votre-username].github.io/simward/
    npx shadcn-ui@latest add [component-name]
    ```
 
-2. **Changer la base URL** :
-   Modifiez `base` dans `vite.config.ts` si vous renommez le dépôt.
+2. **Changer la base URL si nécessaire** :
+   - Si votre dépôt n'est pas nommé `[username].github.io`
+   - Modifiez `base: '/'` en `base: '/[repo-name]/'` dans `vite.config.ts`
 
 3. **Mettre à jour les versions** :
    ```bash
