@@ -6,6 +6,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -65,6 +66,26 @@ export function RewardChart({ params }: RewardChartProps) {
 
     return data
   }, [a, b, k, P, T, S, price])
+
+  // Calculate break-even point where cumulative USD equals entry fee
+  const breakEvenPoint = useMemo(() => {
+    for (let i = 1; i < chartData.length; i++) {
+      const prev = chartData[i - 1]
+      const curr = chartData[i]
+
+      // Check if entry fee is between previous and current cumulative USD
+      if (prev.cumulativeUsd <= entryFee && curr.cumulativeUsd >= entryFee) {
+        // Linear interpolation to find exact point
+        const ratio = (entryFee - prev.cumulativeUsd) / (curr.cumulativeUsd - prev.cumulativeUsd)
+        const breakEvenP = prev.p + ratio * (curr.p - prev.p)
+        return {
+          p: Number(breakEvenP.toFixed(2)),
+          cumulativeUsd: entryFee,
+        }
+      }
+    }
+    return null
+  }, [chartData, entryFee])
 
   // Generate custom ticks for X axis (max 10 ticks)
   const xAxisTicks = useMemo(() => {
@@ -160,6 +181,33 @@ export function RewardChart({ params }: RewardChartProps) {
                   fontSize: 12,
                 }}
               />
+              {breakEvenPoint && (
+                <>
+                  <ReferenceLine
+                    x={breakEvenPoint.p}
+                    stroke="hsl(var(--chart-3))"
+                    strokeDasharray="5 5"
+                    strokeWidth={2}
+                    label={{
+                      value: 'Break Even',
+                      position: 'bottom',
+                      fill: 'hsl(var(--chart-3))',
+                      fontSize: 12,
+                      offset: 10,
+                    }}
+                  />
+                  <ReferenceDot
+                    x={breakEvenPoint.p}
+                    y={breakEvenPoint.cumulativeUsd}
+                    yAxisId="right"
+                    r={8}
+                    fill="hsl(var(--chart-3))"
+                    stroke="white"
+                    strokeWidth={2}
+                    shape="star"
+                  />
+                </>
+              )}
               <Line
                 yAxisId="left"
                 type="monotone"
