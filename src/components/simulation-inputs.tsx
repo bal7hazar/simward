@@ -39,7 +39,7 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
   // Convert log scale (0-130) to actual value
   const getActualValue = (logValue: number): number => {
     if (logValue === 0) return 0
-    return 10 ** (logValue / 10)
+    return Math.round(10 ** (logValue / 10))
   }
 
   const handleLogSliderChange = (values: number[]) => {
@@ -77,9 +77,12 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
           <Input
             id="a-input"
             type="number"
-            step="1000000"
-            value={params.a}
-            onChange={(e) => onParamChange('a', Number.parseFloat(e.target.value) || 0)}
+            step="1"
+            value={Math.round(params.a)}
+            onChange={(e) => {
+              const value = Number.parseInt(e.target.value) || 0
+              onParamChange('a', value)
+            }}
             className="w-full"
           />
           <p className="text-xs text-muted-foreground">Customization factor (logarithmic scale)</p>
