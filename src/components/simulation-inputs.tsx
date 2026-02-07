@@ -69,14 +69,14 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
               id="b-slider"
               min={0}
               max={10}
-              step={0.1}
+              step={1}
               value={[params.b]}
               onValueChange={(values) => onParamChange('b', values[0])}
               className="w-full"
             />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>0</span>
-              <span className="font-medium text-foreground">{params.b.toFixed(1)}</span>
+              <span className="font-medium text-foreground">{params.b}</span>
               <span>10</span>
             </div>
           </div>
