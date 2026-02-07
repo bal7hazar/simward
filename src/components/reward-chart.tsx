@@ -34,12 +34,15 @@ export function RewardChart({ params }: RewardChartProps) {
     const step = P / pointCount
 
     for (let p = 0; p <= P; p += step) {
-      // Formula: y = a * (1 - (S - T)/T) / ((P+b)^k - p^k)
+      // Formula: y = a * (1 - (S - T)/T) / ((P+b)^k - p^k) - a * (1 - (S - T)/T) / (P+b)^k
       const numerator = a * (1 - (S - T) / T)
-      const denominator = (P + b) ** k - p ** k
+      const term1 = (P + b) ** k - p ** k
+      const term2 = (P + b) ** k
 
       // Avoid division by zero
-      const y = denominator !== 0 ? numerator / denominator : 0
+      const y1 = term1 !== 0 ? numerator / term1 : 0
+      const y2 = term2 !== 0 ? numerator / term2 : 0
+      const y = y1 - y2
 
       data.push({
         p: Number(p.toFixed(2)),
@@ -88,7 +91,9 @@ export function RewardChart({ params }: RewardChartProps) {
         </CardHeader>
         <CardContent>
           <div className="text-center text-lg p-4 bg-muted rounded-lg">
-            <InlineMath math={String.raw`y = a \cdot \frac{1 - \frac{S - T}{T}}{(P+b)^k - p^k}`} />
+            <InlineMath
+              math={String.raw`y = a \cdot \frac{1 - \frac{S - T}{T}}{(P+b)^k - p^k} - \frac{a \cdot (1 - \frac{S - T}{T})}{(P+b)^k}`}
+            />
           </div>
         </CardContent>
       </Card>
