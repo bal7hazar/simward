@@ -16,7 +16,7 @@ interface SimulationInputsProps {
 }
 
 export function SimulationInputs({ params, onParamChange }: SimulationInputsProps) {
-  const maxA = 10_000_000_000 // 10 billion
+  const maxA = 10_000_000_000_000 // 10 trillion
 
   const inputs = [
     { key: 'k', label: 'Constant k', description: 'Customization exponent' },
@@ -45,7 +45,7 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
               id="a-slider"
               min={0}
               max={maxA}
-              step={1_000_000}
+              step={10_000_000}
               value={[params.a]}
               onValueChange={(values) => onParamChange('a', values[0])}
               className="w-full"
@@ -53,7 +53,7 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>0</span>
               <span className="font-medium text-foreground">{formatNumber(params.a)}</span>
-              <span>10B</span>
+              <span>10T</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Customization factor</p>
