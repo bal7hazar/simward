@@ -52,7 +52,7 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
   }
 
   return (
-    <Card className="h-full">
+    <Card className="h-full min-h-full">
       <CardHeader>
         <CardTitle>Parameters</CardTitle>
       </CardHeader>
