@@ -6,9 +6,9 @@ import {
   CartesianGrid,
   Line,
   LineChart,
-  ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
+  Scatter,
   Tooltip,
   XAxis,
   YAxis,
@@ -86,6 +86,29 @@ export function RewardChart({ params }: RewardChartProps) {
     }
     return null
   }, [chartData, entryFee])
+
+  const breakEvenData = useMemo(() => {
+    return breakEvenPoint ? [breakEvenPoint] : []
+  }, [breakEvenPoint])
+
+  // Custom star shape for break-even point
+  const renderStar = (props: { cx: number; cy: number; fill: string }) => {
+    const { cx, cy, fill } = props
+    const size = 10
+    const points = []
+    for (let i = 0; i < 5; i++) {
+      const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2
+      const x = cx + size * Math.cos(angle)
+      const y = cy + size * Math.sin(angle)
+      points.push(`${x},${y}`)
+    }
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={size + 2} fill="white" />
+        <polygon points={points.join(' ')} fill={fill} stroke="white" strokeWidth={2} />
+      </g>
+    )
+  }
 
   // Generate custom ticks for X axis (max 10 ticks)
   const xAxisTicks = useMemo(() => {
@@ -182,31 +205,19 @@ export function RewardChart({ params }: RewardChartProps) {
                 }}
               />
               {breakEvenPoint && (
-                <>
-                  <ReferenceLine
-                    x={breakEvenPoint.p}
-                    stroke="hsl(var(--chart-3))"
-                    strokeDasharray="5 5"
-                    strokeWidth={2}
-                    label={{
-                      value: 'Break Even',
-                      position: 'bottom',
-                      fill: 'hsl(var(--chart-3))',
-                      fontSize: 12,
-                      offset: 10,
-                    }}
-                  />
-                  <ReferenceDot
-                    x={breakEvenPoint.p}
-                    y={breakEvenPoint.cumulativeUsd}
-                    yAxisId="right"
-                    r={8}
-                    fill="hsl(var(--chart-3))"
-                    stroke="white"
-                    strokeWidth={2}
-                    shape="star"
-                  />
-                </>
+                <ReferenceLine
+                  x={breakEvenPoint.p}
+                  stroke="hsl(var(--chart-3))"
+                  strokeDasharray="5 5"
+                  strokeWidth={2}
+                  label={{
+                    value: 'Break Even',
+                    position: 'bottom',
+                    fill: 'hsl(var(--chart-3))',
+                    fontSize: 12,
+                    offset: 10,
+                  }}
+                />
               )}
               <Line
                 yAxisId="left"
@@ -250,6 +261,16 @@ export function RewardChart({ params }: RewardChartProps) {
                 name="cumulativeUsd"
                 opacity={0}
               />
+              {breakEvenPoint && (
+                <Scatter
+                  yAxisId="right"
+                  data={breakEvenData}
+                  dataKey="cumulativeUsd"
+                  fill="hsl(var(--chart-3))"
+                  shape={renderStar}
+                  isAnimationActive={false}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
