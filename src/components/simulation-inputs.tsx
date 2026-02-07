@@ -22,8 +22,8 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
   const inputs = [
     { key: 'k', label: 'Constant k', description: 'Customization exponent' },
     { key: 'P', label: 'Max Performance (P)', description: 'Maximum performance value' },
-    { key: 'T', label: 'Target (T)', description: 'Target value' },
-    { key: 'S', label: 'Current Value (S)', description: 'Current value' },
+    { key: 'T', label: 'Target Supply (T)', description: 'Target value' },
+    { key: 'S', label: 'Current Supply (S)', description: 'Current value' },
   ]
 
   const formatNumber = (num: number) => {
