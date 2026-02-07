@@ -1,10 +1,20 @@
-import { ExampleChart } from '@/components/example-chart'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { RewardChart } from '@/components/reward-chart'
+import { SimulationInputs } from '@/components/simulation-inputs'
 import { useState } from 'react'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [params, setParams] = useState({
+    a: 100,
+    k: 2,
+    P: 100,
+    p: 50,
+    T: 1000,
+    S: 500,
+  })
+
+  const handleParamChange = (key: string, value: number) => {
+    setParams((prev) => ({ ...prev, [key]: value }))
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
@@ -14,83 +24,18 @@ function App() {
             Simward
           </h1>
           <p className="text-slate-600 dark:text-slate-400">
-            Votre application web hébergée sur GitHub Pages
+            Simulateur de courbes de reward pour jeux
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 mb-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Bienvenue</CardTitle>
-              <CardDescription>
-                Votre projet est configuré avec React, Vite, TailwindCSS et Shadcn
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-sm">React 18</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-sm">Vite</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-sm">TailwindCSS</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-sm">Shadcn UI</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-sm">Recharts</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-sm">Biome</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-sm">Turbo</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Exemple de Graphique</CardTitle>
-              <CardDescription>Recharts intégré et prêt à utiliser</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ExampleChart />
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <SimulationInputs params={params} onParamChange={handleParamChange} />
+          </div>
+          <div className="lg:col-span-2">
+            <RewardChart params={params} />
+          </div>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Compteur Interactif</CardTitle>
-            <CardDescription>Exemple de composant React avec état</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4">
-              <Button onClick={() => setCount(count - 1)} variant="outline">
-                -
-              </Button>
-              <div className="text-4xl font-bold tabular-nums min-w-[100px] text-center">
-                {count}
-              </div>
-              <Button onClick={() => setCount(count + 1)}>+</Button>
-              <Button onClick={() => setCount(0)} variant="ghost">
-                Réinitialiser
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   )
