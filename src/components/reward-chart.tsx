@@ -135,6 +135,24 @@ export function RewardChart({ params }: RewardChartProps) {
     return ticks
   }, [P])
 
+  // Calculate Y axis domain based on chart data
+  const yAxisDomain = useMemo(() => {
+    if (chartData.length === 0) return [0, 100000]
+
+    const allYValues = chartData.flatMap((d) => [d.y, d.cumulative])
+    const maxY = Math.max(...allYValues)
+
+    // Round max to nearest 10,000 (ceiling)
+    const roundedMax = Math.ceil(maxY / 10000) * 10000
+
+    return [0, roundedMax]
+  }, [chartData])
+
+  // Calculate USD axis domain (same proportions as rewards axis)
+  const usdAxisDomain = useMemo(() => {
+    return [yAxisDomain[0] * price, yAxisDomain[1] * price]
+  }, [yAxisDomain, price])
+
   interface TooltipPayload {
     payload: { p: number; y: number; cumulative: number; yUsd: number; cumulativeUsd: number }
     value: number
@@ -200,11 +218,13 @@ export function RewardChart({ params }: RewardChartProps) {
               />
               <YAxis
                 yAxisId="left"
+                domain={yAxisDomain}
                 label={{ value: 'Rewards', angle: -90, position: 'insideLeft' }}
               />
               <YAxis
                 yAxisId="right"
                 orientation="right"
+                domain={usdAxisDomain}
                 label={{ value: 'USD', angle: 90, position: 'insideRight' }}
                 tickFormatter={(value) => `$${value.toFixed(2)}`}
               />
