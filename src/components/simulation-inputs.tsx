@@ -23,7 +23,6 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
     { key: 'k', label: 'Constant k', description: 'Customization exponent' },
     { key: 'P', label: 'Max Performance (P)', description: 'Maximum performance value' },
     { key: 'T', label: 'Target Supply (T)', description: 'Target supply value' },
-    { key: 'S', label: 'Current Supply (S)', description: 'Current supply value' },
     { key: 'price', label: 'Price (USD)', description: 'Price per reward token in USD' },
     { key: 'entryFee', label: 'Entry Fee (USD)', description: 'Entry fee in USD' },
   ]
@@ -86,31 +85,88 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
           <p className="text-xs text-muted-foreground">Performance offset</p>
         </div>
 
-        {/* Regular inputs for other params */}
-        {inputs.map(({ key, label, description }) => (
-          <div key={key} className="space-y-2">
-            <Label htmlFor={key} className="text-sm font-medium">
-              {label}
-            </Label>
-            <Input
-              id={key}
-              type="number"
-              step={
-                key === 'price'
-                  ? '0.0001'
-                  : key === 'entryFee'
-                    ? '0.01'
-                    : key === 'maxReward'
-                      ? '1'
-                      : '0.1'
-              }
-              value={params[key as keyof typeof params]}
-              onChange={(e) => onParamChange(key, Number.parseFloat(e.target.value) || 0)}
+        {/* Regular inputs for other params - up to Target Supply */}
+        {inputs
+          .filter((input) => input.key !== 'T')
+          .filter((input) => ['maxReward', 'k', 'P'].includes(input.key))
+          .map(({ key, label, description }) => (
+            <div key={key} className="space-y-2">
+              <Label htmlFor={key} className="text-sm font-medium">
+                {label}
+              </Label>
+              <Input
+                id={key}
+                type="number"
+                step={key === 'maxReward' ? '1' : '0.1'}
+                value={params[key as keyof typeof params]}
+                onChange={(e) => onParamChange(key, Number.parseFloat(e.target.value) || 0)}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">{description}</p>
+            </div>
+          ))}
+
+        {/* Target Supply input */}
+        <div className="space-y-2">
+          <Label htmlFor="T" className="text-sm font-medium">
+            Target Supply (T)
+          </Label>
+          <Input
+            id="T"
+            type="number"
+            step="0.1"
+            value={params.T}
+            onChange={(e) => onParamChange('T', Number.parseFloat(e.target.value) || 0)}
+            className="w-full"
+          />
+          <p className="text-xs text-muted-foreground">Target supply value</p>
+        </div>
+
+        {/* Slider for Current Supply (S) */}
+        <div className="space-y-3">
+          <Label htmlFor="s-slider" className="text-sm font-medium">
+            Current Supply (S)
+          </Label>
+          <div className="space-y-2">
+            <Slider
+              id="s-slider"
+              min={0}
+              max={params.T * 2}
+              step={params.T / 100}
+              value={[params.S]}
+              onValueChange={(values) => onParamChange('S', values[0])}
               className="w-full"
             />
-            <p className="text-xs text-muted-foreground">{description}</p>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>0</span>
+              <span className="font-medium text-foreground">
+                {formatNumber(Math.round(params.S))}
+              </span>
+              <span>{formatNumber(params.T * 2)}</span>
+            </div>
           </div>
-        ))}
+          <p className="text-xs text-muted-foreground">Current supply value (0 to 2× Target)</p>
+        </div>
+
+        {/* Remaining inputs (price, entryFee) */}
+        {inputs
+          .filter((input) => ['price', 'entryFee'].includes(input.key))
+          .map(({ key, label, description }) => (
+            <div key={key} className="space-y-2">
+              <Label htmlFor={key} className="text-sm font-medium">
+                {label}
+              </Label>
+              <Input
+                id={key}
+                type="number"
+                step={key === 'price' ? '0.0001' : '0.01'}
+                value={params[key as keyof typeof params]}
+                onChange={(e) => onParamChange(key, Number.parseFloat(e.target.value) || 0)}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">{description}</p>
+            </div>
+          ))}
       </CardContent>
     </Card>
   )
