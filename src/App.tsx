@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 function App() {
   const [params, setParams] = useState({
-    a: 270_000_000_000,
+    maxReward: 1000,
     b: 3,
     k: 5,
     P: 20,

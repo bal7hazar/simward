@@ -16,7 +16,7 @@ import {
 
 interface RewardChartProps {
   params: {
-    a: number
+    maxReward: number
     b: number
     k: number
     P: number
@@ -28,7 +28,21 @@ interface RewardChartProps {
 }
 
 export function RewardChart({ params }: RewardChartProps) {
-  const { a, b, k, P, T, S, price, entryFee } = params
+  const { maxReward, b, k, P, T, S, price, entryFee } = params
+
+  // Calculate constant 'a' from maxReward
+  const a = useMemo(() => {
+    const supplyFactor = 1 - (S - T) / T
+    const term1 = (P + b) ** k - P ** k
+    const term2 = (P + b) ** k
+
+    if (supplyFactor === 0 || term1 === 0 || term2 === 0) return 0
+
+    const denominator = supplyFactor * (1 / term1 - 1 / term2)
+    if (denominator === 0) return 0
+
+    return maxReward / denominator
+  }, [maxReward, b, k, P, T, S])
 
   // Generate curve data with cumulative rewards
   const chartData = useMemo(() => {

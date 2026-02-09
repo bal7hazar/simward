@@ -5,7 +5,7 @@ import { Slider } from '@/components/ui/slider'
 
 interface SimulationInputsProps {
   params: {
-    a: number
+    maxReward: number
     b: number
     k: number
     P: number
@@ -18,10 +18,8 @@ interface SimulationInputsProps {
 }
 
 export function SimulationInputs({ params, onParamChange }: SimulationInputsProps) {
-  const maxA = 10_000_000_000_000 // 10 trillion
-  const maxLogValue = 130 // log scale: 10^(130/10) = 10^13 = 10T
-
   const inputs = [
+    { key: 'maxReward', label: 'Max Reward', description: 'Reward at maximum performance' },
     { key: 'k', label: 'Constant k', description: 'Customization exponent' },
     { key: 'P', label: 'Max Performance (P)', description: 'Maximum performance value' },
     { key: 'T', label: 'Target Supply (T)', description: 'Target supply value' },
@@ -34,22 +32,23 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
     return new Intl.NumberFormat('en-US').format(num)
   }
 
-  // Convert actual value to log scale (0-130)
-  const getLogValue = (value: number): number => {
-    if (value === 0) return 0
-    return Math.log10(value) * 10
+  // Calculate constant 'a' from maxReward
+  // Formula: a = maxReward / ((1 - (S - T)/T) * [1/((P+b)^k - P^k) - 1/(P+b)^k])
+  const calculateA = (): number => {
+    const { maxReward, b, k, P, T, S } = params
+    const supplyFactor = 1 - (S - T) / T
+    const term1 = (P + b) ** k - P ** k
+    const term2 = (P + b) ** k
+
+    if (supplyFactor === 0 || term1 === 0 || term2 === 0) return 0
+
+    const denominator = supplyFactor * (1 / term1 - 1 / term2)
+    if (denominator === 0) return 0
+
+    return maxReward / denominator
   }
 
-  // Convert log scale (0-130) to actual value
-  const getActualValue = (logValue: number): number => {
-    if (logValue === 0) return 0
-    return Math.round(10 ** (logValue / 10))
-  }
-
-  const handleLogSliderChange = (values: number[]) => {
-    const actualValue = getActualValue(values[0])
-    onParamChange('a', actualValue)
-  }
+  const calculatedA = calculateA()
 
   return (
     <Card className="h-full">
@@ -57,39 +56,11 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
         <CardTitle>Parameters</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6 lg:max-h-[calc(100vh-20rem)] lg:overflow-y-auto scrollbar-hide">
-        {/* Slider for constant a (logarithmic scale) */}
-        <div className="space-y-3">
-          <Label htmlFor="a-slider" className="text-sm font-medium">
-            Constant a
-          </Label>
-          <div className="space-y-2">
-            <Slider
-              id="a-slider"
-              min={0}
-              max={maxLogValue}
-              step={1}
-              value={[getLogValue(params.a)]}
-              onValueChange={handleLogSliderChange}
-              className="w-full"
-            />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>0</span>
-              <span className="font-medium text-foreground">{formatNumber(params.a)}</span>
-              <span>10T</span>
-            </div>
-          </div>
-          <Input
-            id="a-input"
-            type="number"
-            step="1"
-            value={Math.round(params.a)}
-            onChange={(e) => {
-              const value = Number.parseInt(e.target.value) || 0
-              onParamChange('a', value)
-            }}
-            className="w-full"
-          />
-          <p className="text-xs text-muted-foreground">Customization factor (logarithmic scale)</p>
+        {/* Display calculated constant a (read-only) */}
+        <div className="space-y-2 p-3 bg-muted rounded-lg">
+          <Label className="text-sm font-medium">Constant a (calculated)</Label>
+          <p className="text-lg font-mono font-semibold">{formatNumber(Math.round(calculatedA))}</p>
+          <p className="text-xs text-muted-foreground">Automatically calculated from Max Reward</p>
         </div>
 
         {/* Slider for constant b */}
@@ -125,7 +96,15 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
             <Input
               id={key}
               type="number"
-              step={key === 'price' ? '0.0001' : key === 'entryFee' ? '0.01' : '0.1'}
+              step={
+                key === 'price'
+                  ? '0.0001'
+                  : key === 'entryFee'
+                    ? '0.01'
+                    : key === 'maxReward'
+                      ? '1'
+                      : '0.1'
+              }
               value={params[key as keyof typeof params]}
               onChange={(e) => onParamChange(key, Number.parseFloat(e.target.value) || 0)}
               className="w-full"
