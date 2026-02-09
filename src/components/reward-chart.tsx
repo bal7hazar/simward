@@ -31,18 +31,18 @@ export function RewardChart({ params }: RewardChartProps) {
   const { maxReward, b, k, P, T, S, price, entryFee } = params
 
   // Calculate constant 'a' from maxReward
+  // Assuming S = T, formula simplifies to: a = maxReward / [1/((P+b)^k - P^k) - 1/(P+b)^k]
   const a = useMemo(() => {
-    const supplyFactor = 1 - (S - T) / T
     const term1 = (P + b) ** k - P ** k
     const term2 = (P + b) ** k
 
-    if (supplyFactor === 0 || term1 === 0 || term2 === 0) return 0
+    if (term1 === 0 || term2 === 0) return 0
 
-    const denominator = supplyFactor * (1 / term1 - 1 / term2)
+    const denominator = 1 / term1 - 1 / term2
     if (denominator === 0) return 0
 
     return maxReward / denominator
-  }, [maxReward, b, k, P, T, S])
+  }, [maxReward, b, k, P])
 
   // Generate curve data with cumulative rewards
   const chartData = useMemo(() => {

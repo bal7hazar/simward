@@ -33,16 +33,15 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
   }
 
   // Calculate constant 'a' from maxReward
-  // Formula: a = maxReward / ((1 - (S - T)/T) * [1/((P+b)^k - P^k) - 1/(P+b)^k])
+  // Assuming S = T, formula simplifies to: a = maxReward / [1/((P+b)^k - P^k) - 1/(P+b)^k]
   const calculateA = (): number => {
-    const { maxReward, b, k, P, T, S } = params
-    const supplyFactor = 1 - (S - T) / T
+    const { maxReward, b, k, P } = params
     const term1 = (P + b) ** k - P ** k
     const term2 = (P + b) ** k
 
-    if (supplyFactor === 0 || term1 === 0 || term2 === 0) return 0
+    if (term1 === 0 || term2 === 0) return 0
 
-    const denominator = supplyFactor * (1 / term1 - 1 / term2)
+    const denominator = 1 / term1 - 1 / term2
     if (denominator === 0) return 0
 
     return maxReward / denominator
