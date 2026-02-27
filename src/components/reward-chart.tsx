@@ -60,7 +60,7 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
   }, [maxReward, b, k, P])
 
   // Generate curve data with cumulative rewards and normal distribution (points at integer p only)
-  const { chartData, yAxisDomain } = useMemo(() => {
+  const { chartData } = useMemo(() => {
     const data: {
       p: number
       y: number
@@ -132,10 +132,7 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
       }
     })
 
-    return {
-      chartData: chartDataWithDist,
-      yAxisDomain: [-distHeight, roundedMax] as [number, number],
-    }
+    return { chartData: chartDataWithDist }
   }, [a, b, k, P, T, S, price, avgPerformance, stdDeviation, showCumulative])
 
   // Iterative simulation: games at avg, tokens swapped for USD, pool + supply evolve until break-even = avg
@@ -261,6 +258,94 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
     }
   }, [a, b, k, P, T, S, initialLiquidity, price, entryFee, avgPerformance, showCumulative])
 
+  // Final state chart data (when simulation converged): reward/cumulative with final supply & price
+  const chartDataWithFinal = useMemo(() => {
+    if (!breakEvenSimResult.converged) return chartData
+
+    const finalSupply = S + breakEvenSimResult.supplyCreated
+    const finalPrice = breakEvenSimResult.finalPrice
+
+    const rewardAt = (p: number, supply: number): number => {
+      const numerator = a * (1 - (supply - T) / T)
+      const term1 = (P + b) ** k - p ** k
+      const term2 = (P + b) ** k
+      const y1 = term1 !== 0 ? numerator / term1 : 0
+      const y2 = term2 !== 0 ? numerator / term2 : 0
+      return y1 - y2
+    }
+
+    const step = 1
+    let cumulativeFinal = 0
+    return chartData.map((d, i) => {
+      const yFinal = rewardAt(d.p, finalSupply)
+      if (i > 0) {
+        const prevY = chartData[i - 1]
+        const prevYFinal = rewardAt(prevY.p, finalSupply)
+        cumulativeFinal += ((prevYFinal + yFinal) / 2) * step
+      }
+      return {
+        ...d,
+        yFinal: Number(yFinal.toFixed(2)),
+        cumulativeFinal: Number(cumulativeFinal.toFixed(2)),
+        yUsdFinal: Number((yFinal * finalPrice).toFixed(4)),
+        cumulativeUsdFinal: Number((cumulativeFinal * finalPrice).toFixed(4)),
+      }
+    })
+  }, [chartData, breakEvenSimResult, a, b, k, P, T, S])
+
+  // Final break-even point (vertical line)
+  const finalBreakEvenPoint = useMemo(() => {
+    if (!breakEvenSimResult.converged || chartDataWithFinal === chartData) return null
+    const valueKey = showCumulative ? 'cumulativeUsdFinal' : 'yUsdFinal'
+    type WithFinal = { p: number } & Record<string, number | undefined>
+    for (let i = 1; i < chartDataWithFinal.length; i++) {
+      const prev = chartDataWithFinal[i - 1] as WithFinal
+      const curr = chartDataWithFinal[i] as WithFinal
+      const prevValue = prev[valueKey] ?? 0
+      const currValue = curr[valueKey] ?? 0
+      if (prevValue <= entryFee && currValue >= entryFee) {
+        const ratio = (entryFee - prevValue) / (currValue - prevValue)
+        return prev.p + ratio * (curr.p - prev.p)
+      }
+    }
+    return null
+  }, [chartDataWithFinal, chartData, breakEvenSimResult.converged, showCumulative, entryFee])
+
+  // Max USD from data for auto-scaling
+  const maxUsd = useMemo(() => {
+    let max = 0
+    for (const d of chartDataWithFinal) {
+      const dd = d as {
+        yUsd?: number
+        cumulativeUsd?: number
+        yUsdFinal?: number
+        cumulativeUsdFinal?: number
+      }
+      max = Math.max(
+        max,
+        dd.yUsd ?? 0,
+        dd.cumulativeUsd ?? 0,
+        dd.yUsdFinal ?? 0,
+        dd.cumulativeUsdFinal ?? 0
+      )
+    }
+    return Math.max(max, entryFee, 1) * 1.05
+  }, [chartDataWithFinal, entryFee])
+
+  const distHeight = maxUsd * 0.25
+
+  // Display data: both states, curves in USD (right axis), distribution scaled for left axis
+  const displayData = useMemo(() => {
+    const maxDensity = Math.max(...chartData.map((d) => d.distributionDensity))
+    return chartDataWithFinal.map((d) => ({
+      ...d,
+      distributionY: maxDensity > 0 ? (d.distributionDensity / maxDensity) * distHeight : 0,
+    }))
+  }, [chartData, chartDataWithFinal, distHeight])
+
+  const usdAxisDomain = useMemo(() => [0, maxUsd] as [number, number], [maxUsd])
+  const leftAxisDomain = useMemo(() => [0, distHeight * 2] as [number, number], [distHeight])
+
   // Calculate break-even point where curve (cumulative or reward) USD equals entry fee
   const breakEvenPoint = useMemo(() => {
     const valueKey = showCumulative ? 'cumulativeUsd' : 'yUsd'
@@ -293,30 +378,12 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
     return ticks
   }, [P])
 
-  // USD axis domain aligned with rewards (0 at same vertical position)
-  const usdAxisDomain = useMemo(() => {
-    return [yAxisDomain[0] * price, yAxisDomain[1] * price] as [number, number]
-  }, [yAxisDomain, price])
-
-  // Ticks including 0 for both Y axes
-  const leftAxisTicks = useMemo(() => {
-    const [min, max] = yAxisDomain
-    const ticks = new Set<number>([min, 0])
-    if (max > 0) {
-      for (let i = 1; i <= 4; i++) ticks.add(Math.round((max / 4) * i))
-    }
-    return [...ticks].sort((a, b) => a - b)
-  }, [yAxisDomain])
-
   const rightAxisTicks = useMemo(() => {
-    const [min, max] = usdAxisDomain
-    const ticks = new Set<number>([0])
-    if (min < 0) ticks.add(min)
-    if (max > 0) {
-      for (let i = 1; i <= 4; i++) ticks.add(Number(((max / 4) * i).toFixed(2)))
-    }
-    return [...ticks].sort((a, b) => a - b)
-  }, [usdAxisDomain])
+    const ticks = [0]
+    const step = maxUsd > 0 ? maxUsd / 4 : 1
+    for (let i = 1; i <= 4; i++) ticks.push(Number((step * i).toFixed(2)))
+    return ticks
+  }, [maxUsd])
 
   interface TooltipPayload {
     payload: {
@@ -326,6 +393,8 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
       yUsd: number
       cumulativeUsd: number
       distributionCumulativePct?: number
+      yFinal?: number
+      cumulativeFinal?: number
     }
     value: number
     name?: string
@@ -341,9 +410,16 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
   }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload
+      const dd = data as {
+        yFinal?: number
+        cumulativeFinal?: number
+        yUsdFinal?: number
+        cumulativeUsdFinal?: number
+      }
       return (
         <div className="bg-background border border-border rounded-lg p-3 shadow-lg space-y-1">
           <p className="text-sm font-medium border-b border-border pb-1">Performance: {data.p}</p>
+          <p className="text-sm text-muted-foreground">Entry fee: ${entryFee.toFixed(2)}</p>
           <div className="space-y-0.5">
             <p className="text-sm" style={{ color: '#1f2937' }}>
               Reward: {data.y} (${data.yUsd.toFixed(4)})
@@ -352,6 +428,19 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
               <p className="text-sm" style={{ color: '#3b82f6' }}>
                 Cumulative: {data.cumulative} (${data.cumulativeUsd.toFixed(4)})
               </p>
+            )}
+            {breakEvenSimResult.converged && dd.yFinal != null && (
+              <>
+                <p className="text-sm pt-1 border-t border-border" style={{ color: '#64748b' }}>
+                  Final reward: {dd.yFinal} (${(dd.yUsdFinal ?? 0).toFixed(4)})
+                </p>
+                {showCumulative && dd.cumulativeFinal != null && (
+                  <p className="text-sm" style={{ color: '#60a5fa' }}>
+                    Final cumulative: {dd.cumulativeFinal} ( $
+                    {(dd.cumulativeUsdFinal ?? 0).toFixed(4)})
+                  </p>
+                )}
+              </>
             )}
             <p className="text-sm" style={{ color: '#7c3aed' }}>
               Cumulative density: {(data.distributionCumulativePct ?? 0).toFixed(1)}% (population
@@ -381,7 +470,7 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
-            <ComposedChart data={chartData} margin={{ top: 30, right: 30, left: 20, bottom: 25 }}>
+            <ComposedChart data={displayData} margin={{ top: 55, right: 30, left: 50, bottom: 25 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="p"
@@ -392,32 +481,99 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
               />
               <YAxis
                 yAxisId="left"
-                domain={yAxisDomain}
-                ticks={leftAxisTicks}
-                label={{ value: 'Rewards', angle: -90, position: 'insideLeft' }}
-                tickFormatter={(v) =>
-                  v < 0 ? `${Math.round((-v / -yAxisDomain[0]) * 100)}%` : v.toString()
-                }
+                domain={leftAxisDomain}
+                tick={false}
+                axisLine={false}
+                tickLine={false}
               />
               <YAxis
                 yAxisId="right"
                 orientation="right"
                 domain={usdAxisDomain}
                 ticks={rightAxisTicks}
-                label={{ value: 'USD', angle: 90, position: 'insideRight' }}
+                label={{ value: 'USD', angle: 0, position: 'top', offset: 15, dx: -30 }}
                 tickFormatter={(value) => (value < 0 ? '' : `$${value.toFixed(2)}`)}
               />
               <ReferenceLine yAxisId="left" y={0} stroke="#94a3b8" strokeWidth={1} />
               <Tooltip content={<CustomTooltip />} />
+              <Area
+                yAxisId="left"
+                type="monotone"
+                dataKey="distributionY"
+                stroke="#7c3aed"
+                strokeWidth={0.75}
+                fill="#7c3aed"
+                fillOpacity={0.2}
+                baseValue={0}
+                isAnimationActive={false}
+              />
+              <Line
+                yAxisId="left"
+                type="monotone"
+                dataKey="distributionY"
+                stroke="#7c3aed"
+                strokeWidth={0.5}
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="yUsd"
+                stroke="#1f2937"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+                name="yUsd"
+              />
+              {showCumulative && (
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="cumulativeUsd"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                  name="cumulativeUsd"
+                />
+              )}
+              {breakEvenSimResult.converged && (
+                <>
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="yUsdFinal"
+                    stroke="#64748b"
+                    strokeWidth={1}
+                    strokeDasharray="5 5"
+                    dot={false}
+                    isAnimationActive={false}
+                    name="yUsdFinal"
+                  />
+                  {showCumulative && (
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="cumulativeUsdFinal"
+                      stroke="#60a5fa"
+                      strokeWidth={1}
+                      strokeDasharray="5 5"
+                      dot={false}
+                      isAnimationActive={false}
+                      name="cumulativeUsdFinal"
+                    />
+                  )}
+                </>
+              )}
               <ReferenceLine
                 yAxisId="right"
                 y={entryFee}
                 stroke="#ef4444"
-                strokeDasharray="5 5"
-                strokeWidth={2}
+                strokeWidth={1}
                 label={{
                   value: `Entry Fee: $${entryFee.toFixed(2)}`,
-                  position: 'right',
+                  position: 'left',
                   fill: '#ef4444',
                   fontSize: 12,
                 }}
@@ -427,83 +583,32 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
                   yAxisId="right"
                   x={breakEvenPoint.p}
                   stroke="#22c55e"
-                  strokeDasharray="5 5"
-                  strokeWidth={2}
+                  strokeWidth={1}
                   label={{
-                    value: 'Break Even',
+                    value: 'Break Even (initial)',
                     position: 'top',
+                    offset: 5,
                     fill: '#22c55e',
                     fontSize: 12,
-                    offset: 10,
                   }}
                 />
               )}
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="y"
-                stroke="#1f2937"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-                name="y"
-              />
-              {showCumulative && (
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="cumulative"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                  name="cumulative"
-                />
-              )}
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="yUsd"
-                stroke="#1f2937"
-                strokeWidth={0}
-                dot={false}
-                isAnimationActive={false}
-                name="yUsd"
-                opacity={0}
-              />
-              {showCumulative && (
-                <Line
+              {finalBreakEvenPoint != null && (
+                <ReferenceLine
                   yAxisId="right"
-                  type="monotone"
-                  dataKey="cumulativeUsd"
-                  stroke="#3b82f6"
-                  strokeWidth={0}
-                  dot={false}
-                  isAnimationActive={false}
-                  name="cumulativeUsd"
-                  opacity={0}
+                  x={finalBreakEvenPoint}
+                  stroke="#16a34a"
+                  strokeDasharray="5 5"
+                  strokeWidth={1}
+                  label={{
+                    value: 'Break Even (final)',
+                    position: 'top',
+                    offset: 25,
+                    fill: '#16a34a',
+                    fontSize: 12,
+                  }}
                 />
               )}
-              <Area
-                yAxisId="left"
-                type="monotone"
-                dataKey="distributionY"
-                stroke="#7c3aed"
-                strokeWidth={3}
-                fill="#7c3aed"
-                fillOpacity={0.5}
-                baseValue={0}
-                isAnimationActive={false}
-              />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="distributionY"
-                stroke="#5b21b6"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-              />
             </ComposedChart>
           </ResponsiveContainer>
           <div className="mt-4 pt-4 border-t border-border space-y-2">
