@@ -11,6 +11,7 @@ interface SimulationInputsProps {
     P: number
     T: number
     S: number
+    initialLiquidity: number
     price: number
     entryFee: number
     avgPerformance: number
@@ -25,8 +26,7 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
     { key: 'maxReward', label: 'Max Reward', description: 'Reward at maximum performance' },
     { key: 'k', label: 'Constant k', description: 'Customization exponent' },
     { key: 'P', label: 'Max Performance (P)', description: 'Maximum performance value' },
-    { key: 'T', label: 'Target Supply (T)', description: 'Target supply value' },
-    { key: 'price', label: 'Price (USD)', description: 'Price per reward token in USD' },
+    { key: 'price', label: 'Initial Price (USD)', description: 'Initial price per token in pool' },
   ]
 
   const formatNumber = (num: number) => {
@@ -127,20 +127,30 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
           <p className="text-xs text-muted-foreground">Spread of population distribution (σ)</p>
         </div>
 
-        {/* Target Supply input */}
-        <div className="space-y-2">
-          <Label htmlFor="T" className="text-sm font-medium">
+        {/* Target Supply slider (0 to 1B, step 1M) */}
+        <div className="space-y-3">
+          <Label htmlFor="t-slider" className="text-sm font-medium">
             Target Supply (T)
           </Label>
-          <Input
-            id="T"
-            type="number"
-            step="0.1"
-            value={params.T}
-            onChange={(e) => onParamChange('T', Number.parseFloat(e.target.value) || 0)}
-            className="w-full"
-          />
-          <p className="text-xs text-muted-foreground">Target supply value</p>
+          <div className="space-y-2">
+            <Slider
+              id="t-slider"
+              min={0}
+              max={1_000_000_000}
+              step={5_000_000}
+              value={[params.T]}
+              onValueChange={(values) => onParamChange('T', values[0])}
+              className="w-full"
+            />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>0</span>
+              <span className="font-medium text-foreground">
+                {formatNumber(Math.round(params.T))}
+              </span>
+              <span>{formatNumber(1_000_000_000)}</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Target supply (0 to 1B, step 5M)</p>
         </div>
 
         {/* Slider for Current Supply (S) */}
@@ -167,6 +177,34 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Current supply value (0 to 2× Target)</p>
+        </div>
+
+        {/* Initial liquidity slider (0 to S) */}
+        <div className="space-y-3">
+          <Label htmlFor="liquidity-slider" className="text-sm font-medium">
+            Initial liquidity (pool)
+          </Label>
+          <div className="space-y-2">
+            <Slider
+              id="liquidity-slider"
+              min={0}
+              max={params.S}
+              step={1_000_000}
+              value={[params.initialLiquidity]}
+              onValueChange={(values) => onParamChange('initialLiquidity', values[0])}
+              className="w-full"
+            />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>0</span>
+              <span className="font-medium text-foreground">
+                {formatNumber(Math.round(params.initialLiquidity))}
+              </span>
+              <span>{formatNumber(params.S)}</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Token liquidity in pool (0 to Current Supply, step 1M)
+          </p>
         </div>
 
         {/* Price input */}

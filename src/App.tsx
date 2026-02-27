@@ -13,8 +13,9 @@ function App() {
     k: 10,
     P: 18,
     T: 100_000_000,
-    S: 100_000_000,
-    price: 0.0001,
+    S: 60_000_000,
+    initialLiquidity: 50_000_000,
+    price: 0.0002,
     entryFee: 2.0,
     avgPerformance: 14,
     stdDeviation: 1.5,
@@ -26,6 +27,13 @@ function App() {
       if (key === 'P') {
         if (prev.b > value) next.b = value
         if (prev.avgPerformance > value) next.avgPerformance = value
+      }
+      if (key === 'S') {
+        if (prev.initialLiquidity > value) next.initialLiquidity = value
+      }
+      if (key === 'T') {
+        if (prev.S > value * 2) next.S = value * 2
+        if (prev.initialLiquidity > next.S) next.initialLiquidity = next.S
       }
       return next
     })
