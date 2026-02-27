@@ -541,6 +541,12 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
             {breakEvenSimResult.converged !== false && (
               <div className="text-sm text-muted-foreground space-y-1 pl-2 border-l-2 border-border">
                 <p>
+                  Games played (avg. performance):{' '}
+                  <span className="font-mono font-semibold text-foreground">
+                    ~{new Intl.NumberFormat('en-US').format(breakEvenSimResult.games)}
+                  </span>
+                </p>
+                <p>
                   Supply created:{' '}
                   <span className="font-mono font-semibold text-foreground">
                     {breakEvenSimResult.supplyCreated >= 0 ? '+' : ''}
