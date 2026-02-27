@@ -576,6 +576,16 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
             <p className="text-sm pt-1 border-t border-border" style={{ color: '#ef4444' }}>
               Entry fee: ${entryFee.toFixed(2)}
             </p>
+            {breakEvenPoint && (
+              <p className="text-sm" style={{ color: '#22c55e' }}>
+                Break even (initial): {breakEvenPoint.p.toFixed(2)}
+              </p>
+            )}
+            {breakEvenSimResult.converged && equilibriumBreakEvenPoint != null && (
+              <p className="text-sm" style={{ color: '#16a34a' }}>
+                Break even (equilibrium): {equilibriumBreakEvenPoint.toFixed(2)}
+              </p>
+            )}
             <p className="text-sm" style={{ color: '#7c3aed' }}>
               Cumulative density: {(data.distributionCumulativePct ?? 0).toFixed(1)}% (population
               with p ≤ {data.p})
@@ -813,7 +823,7 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-4 pt-4 border-t border-border space-y-2 max-h-64 overflow-y-auto">
+          <div className="mt-4 pt-4 border-t border-border space-y-2">
             <p className="text-sm text-muted-foreground">
               Constant a (calculated):{' '}
               <span className="font-mono font-semibold text-foreground">
@@ -871,79 +881,79 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
               )}
             </p>
             {breakEvenSimResult.phase1.converged && (
-              <div className="text-sm text-muted-foreground space-y-1 pl-2 border-l-2 border-border">
-                <p className="font-medium">Initial → Avg performance:</p>
-                <p>
-                  Games played:{' '}
-                  <span className="font-mono font-semibold text-foreground">
-                    ~{new Intl.NumberFormat('en-US').format(breakEvenSimResult.phase1.games)}
-                  </span>
-                </p>
-                <p>
-                  Supply created:{' '}
-                  <span className="font-mono font-semibold text-foreground">
-                    {breakEvenSimResult.phase1.supplyCreated >= 0 ? '+' : ''}
-                    {new Intl.NumberFormat('en-US', {
-                      maximumFractionDigits: 0,
-                      minimumFractionDigits: 0,
-                    }).format(breakEvenSimResult.phase1.supplyCreated)}
-                  </span>
-                </p>
-                <p>
-                  USD extracted:{' '}
-                  <span className="font-mono font-semibold text-foreground">
-                    {breakEvenSimResult.phase1.usdExtracted >= 0 ? '+' : ''}$
-                    {breakEvenSimResult.phase1.usdExtracted.toFixed(2)}
-                  </span>
-                </p>
-                <p>
-                  Token price:{' '}
-                  <span className="font-mono font-semibold text-foreground">
-                    ${breakEvenSimResult.phase1.tokenPrice.toFixed(6)}
-                  </span>
-                </p>
-              </div>
-            )}
-            {breakEvenSimResult.phase1.converged && (
-              <div className="text-sm text-muted-foreground space-y-1 pl-2 border-l-2 border-border mt-2">
-                <p className="font-medium">
-                  Avg performance → Equilibrium
-                  {!breakEvenSimResult.phase2.converged && (
-                    <span className="ml-1 text-amber-600">(did not converge)</span>
-                  )}
-                  :
-                </p>
-                <p>
-                  Games played:{' '}
-                  <span className="font-mono font-semibold text-foreground">
-                    ~{new Intl.NumberFormat('en-US').format(breakEvenSimResult.phase2.games)}
-                  </span>
-                </p>
-                <p>
-                  Supply created:{' '}
-                  <span className="font-mono font-semibold text-foreground">
-                    {breakEvenSimResult.phase2.supplyCreated >= 0 ? '+' : ''}
-                    {new Intl.NumberFormat('en-US', {
-                      maximumFractionDigits: 0,
-                      minimumFractionDigits: 0,
-                    }).format(breakEvenSimResult.phase2.supplyCreated)}
-                  </span>
-                </p>
-                <p>
-                  Final supply:{' '}
-                  <span className="font-mono font-semibold text-foreground">
-                    {new Intl.NumberFormat('en-US', {
-                      maximumFractionDigits: 0,
-                      minimumFractionDigits: 0,
-                    }).format(breakEvenSimResult.phase2.finalSupply)}
-                  </span>
-                </p>
-                <p>
-                  Final token price:{' '}
-                  <span className="font-mono font-semibold text-foreground">
-                    ${breakEvenSimResult.phase2.finalTokenPrice.toFixed(6)}
-                  </span>
-                </p>
+              <div className="flex flex-wrap justify-start gap-4">
+                <div className="text-sm text-muted-foreground space-y-1 pl-2 border-l-2 border-border">
+                  <p className="font-medium">Initial → Avg performance:</p>
+                  <p>
+                    Games played:{' '}
+                    <span className="font-mono font-semibold text-foreground">
+                      ~{new Intl.NumberFormat('en-US').format(breakEvenSimResult.phase1.games)}
+                    </span>
+                  </p>
+                  <p>
+                    Supply created:{' '}
+                    <span className="font-mono font-semibold text-foreground">
+                      {breakEvenSimResult.phase1.supplyCreated >= 0 ? '+' : ''}
+                      {new Intl.NumberFormat('en-US', {
+                        maximumFractionDigits: 0,
+                        minimumFractionDigits: 0,
+                      }).format(breakEvenSimResult.phase1.supplyCreated)}
+                    </span>
+                  </p>
+                  <p>
+                    USD extracted:{' '}
+                    <span className="font-mono font-semibold text-foreground">
+                      {breakEvenSimResult.phase1.usdExtracted >= 0 ? '+' : ''}$
+                      {breakEvenSimResult.phase1.usdExtracted.toFixed(2)}
+                    </span>
+                  </p>
+                  <p>
+                    Token price:{' '}
+                    <span className="font-mono font-semibold text-foreground">
+                      ${breakEvenSimResult.phase1.tokenPrice.toFixed(6)}
+                    </span>
+                  </p>
+                </div>
+                <div className="text-sm text-muted-foreground space-y-1 pl-2 border-l-2 border-border">
+                  <p className="font-medium">
+                    Avg performance → Equilibrium
+                    {!breakEvenSimResult.phase2.converged && (
+                      <span className="ml-1 text-amber-600">(did not converge)</span>
+                    )}
+                    :
+                  </p>
+                  <p>
+                    Games played:{' '}
+                    <span className="font-mono font-semibold text-foreground">
+                      ~{new Intl.NumberFormat('en-US').format(breakEvenSimResult.phase2.games)}
+                    </span>
+                  </p>
+                  <p>
+                    Supply created:{' '}
+                    <span className="font-mono font-semibold text-foreground">
+                      {breakEvenSimResult.phase2.supplyCreated >= 0 ? '+' : ''}
+                      {new Intl.NumberFormat('en-US', {
+                        maximumFractionDigits: 0,
+                        minimumFractionDigits: 0,
+                      }).format(breakEvenSimResult.phase2.supplyCreated)}
+                    </span>
+                  </p>
+                  <p>
+                    Final supply:{' '}
+                    <span className="font-mono font-semibold text-foreground">
+                      {new Intl.NumberFormat('en-US', {
+                        maximumFractionDigits: 0,
+                        minimumFractionDigits: 0,
+                      }).format(breakEvenSimResult.phase2.finalSupply)}
+                    </span>
+                  </p>
+                  <p>
+                    Final token price:{' '}
+                    <span className="font-mono font-semibold text-foreground">
+                      ${breakEvenSimResult.phase2.finalTokenPrice.toFixed(6)}
+                    </span>
+                  </p>
+                </div>
               </div>
             )}
           </div>
