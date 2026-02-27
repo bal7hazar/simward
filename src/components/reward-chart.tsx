@@ -947,12 +947,6 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
                       }).format(breakEvenSimResult.phase2.finalSupply)}
                     </span>
                   </p>
-                  <p>
-                    Final token price:{' '}
-                    <span className="font-mono font-semibold text-foreground">
-                      ${breakEvenSimResult.phase2.finalTokenPrice.toFixed(6)}
-                    </span>
-                  </p>
                 </div>
               </div>
             )}
