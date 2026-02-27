@@ -419,7 +419,9 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
       return (
         <div className="bg-background border border-border rounded-lg p-3 shadow-lg space-y-1">
           <p className="text-sm font-medium border-b border-border pb-1">Performance: {data.p}</p>
-          <p className="text-sm text-muted-foreground">Entry fee: ${entryFee.toFixed(2)}</p>
+          <p className="text-sm" style={{ color: '#ef4444' }}>
+            Entry fee: ${entryFee.toFixed(2)}
+          </p>
           <div className="space-y-0.5">
             <p className="text-sm" style={{ color: '#1f2937' }}>
               Reward: {data.y} (${data.yUsd.toFixed(4)})
