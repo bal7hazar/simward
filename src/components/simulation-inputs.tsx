@@ -49,11 +49,11 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
   const calculatedA = calculateA()
 
   return (
-    <Card className="h-full">
+    <Card className="h-full min-h-0 overflow-hidden flex flex-col">
       <CardHeader>
         <CardTitle>Parameters</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6 lg:max-h-[calc(100vh-20rem)] lg:overflow-y-auto scrollbar-hide">
+      <CardContent className="space-y-6 overflow-y-auto h-full min-h-0 scrollbar-hide">
         {/* Display calculated constant a (read-only) */}
         <div className="space-y-2 p-3 bg-muted rounded-lg">
           <Label className="text-sm font-medium">Constant a (calculated)</Label>
@@ -61,33 +61,8 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
           <p className="text-xs text-muted-foreground">Automatically calculated from Max Reward</p>
         </div>
 
-        {/* Slider for constant b */}
-        <div className="space-y-3">
-          <Label htmlFor="b-slider" className="text-sm font-medium">
-            Constant b
-          </Label>
-          <div className="space-y-2">
-            <Slider
-              id="b-slider"
-              min={0}
-              max={10}
-              step={1}
-              value={[params.b]}
-              onValueChange={(values) => onParamChange('b', values[0])}
-              className="w-full"
-            />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>0</span>
-              <span className="font-medium text-foreground">{params.b}</span>
-              <span>10</span>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">Performance offset</p>
-        </div>
-
-        {/* Regular inputs for other params - up to Target Supply */}
+        {/* Regular inputs: maxReward, k, P */}
         {inputs
-          .filter((input) => input.key !== 'T')
           .filter((input) => ['maxReward', 'k', 'P'].includes(input.key))
           .map(({ key, label, description }) => (
             <div key={key} className="space-y-2">
@@ -105,6 +80,30 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
               <p className="text-xs text-muted-foreground">{description}</p>
             </div>
           ))}
+
+        {/* Slider for constant b (range 0 to Max Performance) */}
+        <div className="space-y-3">
+          <Label htmlFor="b-slider" className="text-sm font-medium">
+            Constant b
+          </Label>
+          <div className="space-y-2">
+            <Slider
+              id="b-slider"
+              min={0}
+              max={params.P}
+              step={Math.max(0.1, params.P / 50)}
+              value={[params.b]}
+              onValueChange={(values) => onParamChange('b', values[0])}
+              className="w-full"
+            />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>0</span>
+              <span className="font-medium text-foreground">{params.b}</span>
+              <span>{params.P}</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Performance offset (0 to Max Performance)</p>
+        </div>
 
         {/* Target Supply input */}
         <div className="space-y-2">

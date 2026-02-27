@@ -1,6 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { InlineMath } from 'react-katex'
-import 'katex/dist/katex.min.css'
 import { useMemo } from 'react'
 import {
   CartesianGrid,
@@ -25,9 +23,11 @@ interface RewardChartProps {
     price: number
     entryFee: number
   }
+  showCumulative: boolean
+  onShowCumulativeChange: (checked: boolean) => void
 }
 
-export function RewardChart({ params }: RewardChartProps) {
+export function RewardChart({ params, showCumulative, onShowCumulativeChange }: RewardChartProps) {
   const { maxReward, b, k, P, T, S, price, entryFee } = params
 
   // Calculate constant 'a' from maxReward
@@ -81,28 +81,30 @@ export function RewardChart({ params }: RewardChartProps) {
     return data
   }, [a, b, k, P, T, S, price])
 
-  // Calculate break-even point where cumulative USD equals entry fee
+  // Calculate break-even point where curve (cumulative or reward) USD equals entry fee
   const breakEvenPoint = useMemo(() => {
+    const valueKey = showCumulative ? 'cumulativeUsd' : 'yUsd'
     for (let i = 1; i < chartData.length; i++) {
       const prev = chartData[i - 1]
       const curr = chartData[i]
+      const prevValue = prev[valueKey]
+      const currValue = curr[valueKey]
 
-      // Check if entry fee is between previous and current cumulative USD
-      if (prev.cumulativeUsd <= entryFee && curr.cumulativeUsd >= entryFee) {
-        // Linear interpolation to find exact point
-        const ratio = (entryFee - prev.cumulativeUsd) / (curr.cumulativeUsd - prev.cumulativeUsd)
+      if (prevValue <= entryFee && currValue >= entryFee) {
+        const ratio = (entryFee - prevValue) / (currValue - prevValue)
         const breakEvenP = prev.p + ratio * (curr.p - prev.p)
         return {
           p: Number(breakEvenP.toFixed(2)),
-          cumulativeUsd: entryFee,
+          valueUsd: entryFee,
         }
       }
     }
     return null
-  }, [chartData, entryFee])
+  }, [chartData, entryFee, showCumulative])
 
   const breakEvenData = useMemo(() => {
-    return breakEvenPoint ? [breakEvenPoint] : []
+    if (!breakEvenPoint) return []
+    return [{ p: breakEvenPoint.p, valueUsd: breakEvenPoint.valueUsd }]
   }, [breakEvenPoint])
 
   // Custom star shape for break-even point
@@ -135,18 +137,18 @@ export function RewardChart({ params }: RewardChartProps) {
     return ticks
   }, [P])
 
-  // Calculate Y axis domain based on chart data
+  // Calculate Y axis domain based on chart data (only visible series)
   const yAxisDomain = useMemo(() => {
     if (chartData.length === 0) return [0, 100000]
 
-    const allYValues = chartData.flatMap((d) => [d.y, d.cumulative])
+    const allYValues = chartData.flatMap((d) => (showCumulative ? [d.y, d.cumulative] : [d.y]))
     const maxY = Math.max(...allYValues)
 
     // Round max to nearest 10,000 (ceiling)
     const roundedMax = Math.ceil(maxY / 10000) * 10000
 
     return [0, roundedMax]
-  }, [chartData])
+  }, [chartData, showCumulative])
 
   // Calculate USD axis domain (same proportions as rewards axis)
   const usdAxisDomain = useMemo(() => {
@@ -176,9 +178,11 @@ export function RewardChart({ params }: RewardChartProps) {
             <p className="text-sm" style={{ color: '#1f2937' }}>
               Reward: {data.y} (${data.yUsd.toFixed(4)})
             </p>
-            <p className="text-sm" style={{ color: '#3b82f6' }}>
-              Cumulative: {data.cumulative} (${data.cumulativeUsd.toFixed(4)})
-            </p>
+            {showCumulative && (
+              <p className="text-sm" style={{ color: '#3b82f6' }}>
+                Cumulative: {data.cumulative} (${data.cumulativeUsd.toFixed(4)})
+              </p>
+            )}
           </div>
         </div>
       )
@@ -187,23 +191,19 @@ export function RewardChart({ params }: RewardChartProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Formula</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center text-lg p-4 bg-muted rounded-lg">
-            <InlineMath
-              math={String.raw`y = a \cdot \frac{1 - \frac{S - T}{T}}{(P+b)^k - p^k} - \frac{a \cdot (1 - \frac{S - T}{T})}{(P+b)^k}`}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
+    <div className="h-full">
+      <Card className="h-full">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle>Reward Curve</CardTitle>
+          <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={showCumulative}
+              onChange={(e) => onShowCumulativeChange(e.target.checked)}
+              className="h-4 w-4 rounded border-border"
+            />
+            Cumulative reward
+          </label>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
@@ -268,16 +268,18 @@ export function RewardChart({ params }: RewardChartProps) {
                 isAnimationActive={false}
                 name="y"
               />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="cumulative"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-                name="cumulative"
-              />
+              {showCumulative && (
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="cumulative"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                  name="cumulative"
+                />
+              )}
               <Line
                 yAxisId="right"
                 type="monotone"
@@ -289,22 +291,24 @@ export function RewardChart({ params }: RewardChartProps) {
                 name="yUsd"
                 opacity={0}
               />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="cumulativeUsd"
-                stroke="#3b82f6"
-                strokeWidth={0}
-                dot={false}
-                isAnimationActive={false}
-                name="cumulativeUsd"
-                opacity={0}
-              />
+              {showCumulative && (
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="cumulativeUsd"
+                  stroke="#3b82f6"
+                  strokeWidth={0}
+                  dot={false}
+                  isAnimationActive={false}
+                  name="cumulativeUsd"
+                  opacity={0}
+                />
+              )}
               {breakEvenPoint && (
                 <Scatter
                   yAxisId="right"
                   data={breakEvenData}
-                  dataKey="cumulativeUsd"
+                  dataKey="valueUsd"
                   fill="#22c55e"
                   shape={renderStar}
                   isAnimationActive={false}
