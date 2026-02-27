@@ -13,40 +13,25 @@ interface SimulationInputsProps {
     S: number
     price: number
     entryFee: number
+    avgPerformance: number
+    stdDeviation: number
   }
   onParamChange: (key: string, value: number) => void
 }
 
 export function SimulationInputs({ params, onParamChange }: SimulationInputsProps) {
   const inputs = [
+    { key: 'entryFee', label: 'Entry Fee (USD)', description: 'Entry fee in USD' },
     { key: 'maxReward', label: 'Max Reward', description: 'Reward at maximum performance' },
     { key: 'k', label: 'Constant k', description: 'Customization exponent' },
     { key: 'P', label: 'Max Performance (P)', description: 'Maximum performance value' },
     { key: 'T', label: 'Target Supply (T)', description: 'Target supply value' },
     { key: 'price', label: 'Price (USD)', description: 'Price per reward token in USD' },
-    { key: 'entryFee', label: 'Entry Fee (USD)', description: 'Entry fee in USD' },
   ]
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('en-US').format(num)
   }
-
-  // Calculate constant 'a' from maxReward
-  // Assuming S = T, formula simplifies to: a = maxReward / [1/((P+b)^k - P^k) - 1/(P+b)^k]
-  const calculateA = (): number => {
-    const { maxReward, b, k, P } = params
-    const term1 = (P + b) ** k - P ** k
-    const term2 = (P + b) ** k
-
-    if (term1 === 0 || term2 === 0) return 0
-
-    const denominator = 1 / term1 - 1 / term2
-    if (denominator === 0) return 0
-
-    return maxReward / denominator
-  }
-
-  const calculatedA = calculateA()
 
   return (
     <Card className="h-full min-h-0 overflow-hidden flex flex-col">
@@ -54,16 +39,9 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
         <CardTitle>Parameters</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6 overflow-y-auto h-full min-h-0 scrollbar-hide">
-        {/* Display calculated constant a (read-only) */}
-        <div className="space-y-2 p-3 bg-muted rounded-lg">
-          <Label className="text-sm font-medium">Constant a (calculated)</Label>
-          <p className="text-lg font-mono font-semibold">{formatNumber(Math.round(calculatedA))}</p>
-          <p className="text-xs text-muted-foreground">Automatically calculated from Max Reward</p>
-        </div>
-
-        {/* Regular inputs: maxReward, k, P */}
+        {/* Entry Fee, Max Reward, k, P */}
         {inputs
-          .filter((input) => ['maxReward', 'k', 'P'].includes(input.key))
+          .filter((input) => ['entryFee', 'maxReward', 'k', 'P'].includes(input.key))
           .map(({ key, label, description }) => (
             <div key={key} className="space-y-2">
               <Label htmlFor={key} className="text-sm font-medium">
@@ -72,7 +50,7 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
               <Input
                 id={key}
                 type="number"
-                step={key === 'maxReward' ? '1' : '0.1'}
+                step={key === 'maxReward' ? '1' : key === 'entryFee' ? '0.01' : '0.1'}
                 value={params[key as keyof typeof params]}
                 onChange={(e) => onParamChange(key, Number.parseFloat(e.target.value) || 0)}
                 className="w-full"
@@ -91,18 +69,62 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
               id="b-slider"
               min={0}
               max={params.P}
-              step={Math.max(0.1, params.P / 50)}
+              step={1}
               value={[params.b]}
-              onValueChange={(values) => onParamChange('b', values[0])}
+              onValueChange={(values) => onParamChange('b', Math.round(values[0]))}
               className="w-full"
             />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>0</span>
-              <span className="font-medium text-foreground">{params.b}</span>
+              <span className="font-medium text-foreground">{Math.round(params.b)}</span>
               <span>{params.P}</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Performance offset (0 to Max Performance)</p>
+        </div>
+
+        {/* Average performance input */}
+        <div className="space-y-2">
+          <Label htmlFor="avgPerformance" className="text-sm font-medium">
+            Average performance
+          </Label>
+          <Input
+            id="avgPerformance"
+            type="number"
+            step="0.1"
+            min={0}
+            max={params.P}
+            value={params.avgPerformance}
+            onChange={(e) =>
+              onParamChange('avgPerformance', Number.parseFloat(e.target.value) || 0)
+            }
+            className="w-full"
+          />
+          <p className="text-xs text-muted-foreground">Mean of population distribution (μ)</p>
+        </div>
+
+        {/* Standard deviation slider */}
+        <div className="space-y-3">
+          <Label htmlFor="std-slider" className="text-sm font-medium">
+            Standard deviation
+          </Label>
+          <div className="space-y-2">
+            <Slider
+              id="std-slider"
+              min={0.1}
+              max={params.P / 2}
+              step={0.1}
+              value={[params.stdDeviation]}
+              onValueChange={(values) => onParamChange('stdDeviation', values[0])}
+              className="w-full"
+            />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>0.1</span>
+              <span className="font-medium text-foreground">{params.stdDeviation.toFixed(1)}</span>
+              <span>{params.P / 2}</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Spread of population distribution (σ)</p>
         </div>
 
         {/* Target Supply input */}
@@ -147,9 +169,9 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
           <p className="text-xs text-muted-foreground">Current supply value (0 to 2× Target)</p>
         </div>
 
-        {/* Remaining inputs (price, entryFee) */}
+        {/* Price input */}
         {inputs
-          .filter((input) => ['price', 'entryFee'].includes(input.key))
+          .filter((input) => input.key === 'price')
           .map(({ key, label, description }) => (
             <div key={key} className="space-y-2">
               <Label htmlFor={key} className="text-sm font-medium">

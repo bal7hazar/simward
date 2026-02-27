@@ -1,12 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useMemo } from 'react'
 import {
+  Area,
   CartesianGrid,
+  ComposedChart,
   Line,
-  LineChart,
   ReferenceLine,
   ResponsiveContainer,
-  Scatter,
   Tooltip,
   XAxis,
   YAxis,
@@ -22,13 +22,15 @@ interface RewardChartProps {
     S: number
     price: number
     entryFee: number
+    avgPerformance: number
+    stdDeviation: number
   }
   showCumulative: boolean
   onShowCumulativeChange: (checked: boolean) => void
 }
 
 export function RewardChart({ params, showCumulative, onShowCumulativeChange }: RewardChartProps) {
-  const { maxReward, b, k, P, T, S, price, entryFee } = params
+  const { maxReward, b, k, P, T, S, price, entryFee, avgPerformance, stdDeviation } = params
 
   // Calculate constant 'a' from maxReward
   // Assuming S = T, formula simplifies to: a = maxReward / [1/((P+b)^k - P^k) - 1/(P+b)^k]
@@ -44,42 +46,166 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
     return maxReward / denominator
   }, [maxReward, b, k, P])
 
-  // Generate curve data with cumulative rewards
-  const chartData = useMemo(() => {
-    const data = []
-    // Use P as number of points for small values, max 50 for larger values
-    const pointCount = Math.min(P, 50)
-    const step = P / pointCount
+  // Generate curve data with cumulative rewards and normal distribution (points at integer p only)
+  const { chartData, yAxisDomain } = useMemo(() => {
+    const data: {
+      p: number
+      y: number
+      cumulative: number
+      yUsd: number
+      cumulativeUsd: number
+      distributionDensity: number
+    }[] = []
+    const step = 1
     let cumulativeReward = 0
+    const sigma = Math.max(0.01, stdDeviation)
+    const mu = avgPerformance
 
     for (let p = 0; p <= P; p += step) {
-      // Formula: y = a * (1 - (S - T)/T) / ((P+b)^k - p^k) - a * (1 - (S - T)/T) / (P+b)^k
       const numerator = a * (1 - (S - T) / T)
       const term1 = (P + b) ** k - p ** k
       const term2 = (P + b) ** k
 
-      // Avoid division by zero
       const y1 = term1 !== 0 ? numerator / term1 : 0
       const y2 = term2 !== 0 ? numerator / term2 : 0
       const y = y1 - y2
 
-      // Calculate cumulative reward using trapezoidal rule
       if (data.length > 0) {
         const prevY = data[data.length - 1].y
         cumulativeReward += ((prevY + y) / 2) * step
       }
 
+      const exponent = -((p - mu) ** 2) / (2 * sigma ** 2)
+      const density = Math.exp(exponent)
+
       data.push({
-        p: Number(p.toFixed(2)),
+        p: Math.round(p),
         y: Number(y.toFixed(2)),
         cumulative: Number(cumulativeReward.toFixed(2)),
         yUsd: Number((y * price).toFixed(4)),
         cumulativeUsd: Number((cumulativeReward * price).toFixed(4)),
+        distributionDensity: density,
       })
     }
 
-    return data
-  }, [a, b, k, P, T, S, price])
+    const maxDensity = Math.max(...data.map((d) => d.distributionDensity))
+    const totalIntegral = data.reduce(
+      (sum, d, i) =>
+        sum + (i > 0 ? ((d.distributionDensity + data[i - 1].distributionDensity) / 2) * step : 0),
+      0
+    )
+
+    const allYValues = showCumulative ? data.map((d) => d.cumulative) : data.map((d) => d.y)
+    const maxY = Math.max(...allYValues, 0)
+    const roundedMax =
+      maxY < 1000
+        ? Math.max(Math.ceil(maxY / 100) * 100, 100)
+        : maxY < 10000
+          ? Math.ceil(maxY / 1000) * 1000
+          : Math.ceil(maxY / 10000) * 10000
+    const distHeight = Math.max(roundedMax * 0.25, 1000)
+
+    let cumulativeIntegral = 0
+    const chartDataWithDist = data.map((d, i) => {
+      if (i > 0) {
+        cumulativeIntegral += ((d.distributionDensity + data[i - 1].distributionDensity) / 2) * step
+      }
+      const distributionCumulativePct =
+        totalIntegral > 0 ? (cumulativeIntegral / totalIntegral) * 100 : 0
+      return {
+        ...d,
+        distributionCumulativePct,
+        distributionY: maxDensity > 0 ? -(d.distributionDensity / maxDensity) * distHeight : 0,
+      }
+    })
+
+    return {
+      chartData: chartDataWithDist,
+      yAxisDomain: [-distHeight, roundedMax] as [number, number],
+    }
+  }, [a, b, k, P, T, S, price, avgPerformance, stdDeviation, showCumulative])
+
+  // Supply gap to bring break-even to avg + USD cost
+  const supplyGapResult = useMemo(() => {
+    const mu = avgPerformance
+
+    const rewardAt = (p: number, supply: number): number => {
+      const numerator = a * (1 - (supply - T) / T)
+      const term1 = (P + b) ** k - p ** k
+      const term2 = (P + b) ** k
+      const y1 = term1 !== 0 ? numerator / term1 : 0
+      const y2 = term2 !== 0 ? numerator / term2 : 0
+      return y1 - y2
+    }
+
+    const getBreakEven = (supply: number): number | null => {
+      if (showCumulative) {
+        let cum = 0
+        let cumPrevUsd = 0
+        for (let p = 0; p <= P; p++) {
+          const y = rewardAt(p, supply)
+          if (p > 0) cum += ((rewardAt(p - 1, supply) + y) / 2) * 1
+          const cumUsd = cum * price
+          if (cumUsd >= entryFee) {
+            if (p === 0) return 0
+            const ratio = (entryFee - cumPrevUsd) / (cumUsd - cumPrevUsd)
+            return p - 1 + ratio
+          }
+          cumPrevUsd = cumUsd
+        }
+        return null
+      }
+      let yPrevUsd = rewardAt(0, supply) * price
+      if (yPrevUsd >= entryFee) return 0
+      for (let p = 1; p <= P; p++) {
+        const yUsd = rewardAt(p, supply) * price
+        if (yUsd >= entryFee) {
+          const ratio = (entryFee - yPrevUsd) / (yUsd - yPrevUsd)
+          return p - 1 + ratio
+        }
+        yPrevUsd = yUsd
+      }
+      return null
+    }
+
+    // 1. Target supply: S such that break-even = μ
+    // Reward mode: y(μ, S) * price = entryFee
+    // Cumulative mode: cumulative(μ, S) * price = entryFee
+    // cumulative(μ,S) = (1-(S-T)/T) * a * C where C = integral_0^μ of reward kernel
+    let targetSupply: number
+    if (showCumulative) {
+      const step = 0.1
+      let C = 0
+      for (let p = step; p <= mu; p += step) {
+        const kernel = (pVal: number) => {
+          const t1 = (P + b) ** k - pVal ** k
+          const t2 = (P + b) ** k
+          return (t1 !== 0 ? 1 / t1 : 0) - (t2 !== 0 ? 1 / t2 : 0)
+        }
+        C += ((kernel(p - step) + kernel(p)) / 2) * step
+      }
+      const targetCum = entryFee / price
+      const targetFactor = targetCum / (a * C)
+      targetSupply = T * (1 - targetFactor) + T
+    } else {
+      const denom = (P + b) ** k - mu ** k
+      if (denom <= 0) {
+        return { targetSupply: S, supplyDelta: 0, currentBreakEven: null as number | null }
+      }
+      const K = 1 / denom - 1 / (P + b) ** k
+      if (K <= 0) {
+        return { targetSupply: S, supplyDelta: 0, currentBreakEven: null as number | null }
+      }
+      const targetReward = entryFee / price
+      const factor = targetReward / (a * K)
+      targetSupply = T * (1 - factor) + T
+    }
+
+    const supplyDelta = targetSupply - S
+    const currentBreakEven = getBreakEven(S)
+
+    return { targetSupply, supplyDelta, currentBreakEven }
+  }, [a, b, k, P, T, S, price, entryFee, avgPerformance, showCumulative])
 
   // Calculate break-even point where curve (cumulative or reward) USD equals entry fee
   const breakEvenPoint = useMemo(() => {
@@ -102,30 +228,6 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
     return null
   }, [chartData, entryFee, showCumulative])
 
-  const breakEvenData = useMemo(() => {
-    if (!breakEvenPoint) return []
-    return [{ p: breakEvenPoint.p, valueUsd: breakEvenPoint.valueUsd }]
-  }, [breakEvenPoint])
-
-  // Custom star shape for break-even point
-  const renderStar = (props: { cx: number; cy: number; fill: string }) => {
-    const { cx, cy, fill } = props
-    const size = 10
-    const points = []
-    for (let i = 0; i < 5; i++) {
-      const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2
-      const x = cx + size * Math.cos(angle)
-      const y = cy + size * Math.sin(angle)
-      points.push(`${x},${y}`)
-    }
-    return (
-      <g>
-        <circle cx={cx} cy={cy} r={size + 2} fill="white" />
-        <polygon points={points.join(' ')} fill={fill} stroke="white" strokeWidth={2} />
-      </g>
-    )
-  }
-
   // Generate custom ticks for X axis (only even numbers)
   const xAxisTicks = useMemo(() => {
     const ticks = []
@@ -137,26 +239,40 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
     return ticks
   }, [P])
 
-  // Calculate Y axis domain based on chart data (only visible series)
-  const yAxisDomain = useMemo(() => {
-    if (chartData.length === 0) return [0, 100000]
-
-    const allYValues = chartData.flatMap((d) => (showCumulative ? [d.y, d.cumulative] : [d.y]))
-    const maxY = Math.max(...allYValues)
-
-    // Round max to nearest 10,000 (ceiling)
-    const roundedMax = Math.ceil(maxY / 10000) * 10000
-
-    return [0, roundedMax]
-  }, [chartData, showCumulative])
-
-  // Calculate USD axis domain (same proportions as rewards axis)
+  // USD axis domain aligned with rewards (0 at same vertical position)
   const usdAxisDomain = useMemo(() => {
-    return [yAxisDomain[0] * price, yAxisDomain[1] * price]
+    return [yAxisDomain[0] * price, yAxisDomain[1] * price] as [number, number]
   }, [yAxisDomain, price])
 
+  // Ticks including 0 for both Y axes
+  const leftAxisTicks = useMemo(() => {
+    const [min, max] = yAxisDomain
+    const ticks = new Set<number>([min, 0])
+    if (max > 0) {
+      for (let i = 1; i <= 4; i++) ticks.add(Math.round((max / 4) * i))
+    }
+    return [...ticks].sort((a, b) => a - b)
+  }, [yAxisDomain])
+
+  const rightAxisTicks = useMemo(() => {
+    const [min, max] = usdAxisDomain
+    const ticks = new Set<number>([0])
+    if (min < 0) ticks.add(min)
+    if (max > 0) {
+      for (let i = 1; i <= 4; i++) ticks.add(Number(((max / 4) * i).toFixed(2)))
+    }
+    return [...ticks].sort((a, b) => a - b)
+  }, [usdAxisDomain])
+
   interface TooltipPayload {
-    payload: { p: number; y: number; cumulative: number; yUsd: number; cumulativeUsd: number }
+    payload: {
+      p: number
+      y: number
+      cumulative: number
+      yUsd: number
+      cumulativeUsd: number
+      distributionCumulativePct?: number
+    }
     value: number
     name?: string
     dataKey?: string
@@ -183,6 +299,10 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
                 Cumulative: {data.cumulative} (${data.cumulativeUsd.toFixed(4)})
               </p>
             )}
+            <p className="text-sm" style={{ color: '#7c3aed' }}>
+              Cumulative density: {(data.distributionCumulativePct ?? 0).toFixed(1)}% (population
+              with p ≤ {data.p})
+            </p>
           </div>
         </div>
       )
@@ -207,7 +327,7 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={chartData} margin={{ top: 30, right: 30, left: 20, bottom: 25 }}>
+            <ComposedChart data={chartData} margin={{ top: 30, right: 30, left: 20, bottom: 25 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="p"
@@ -219,15 +339,21 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
               <YAxis
                 yAxisId="left"
                 domain={yAxisDomain}
+                ticks={leftAxisTicks}
                 label={{ value: 'Rewards', angle: -90, position: 'insideLeft' }}
+                tickFormatter={(v) =>
+                  v < 0 ? `${Math.round((-v / -yAxisDomain[0]) * 100)}%` : v.toString()
+                }
               />
               <YAxis
                 yAxisId="right"
                 orientation="right"
                 domain={usdAxisDomain}
+                ticks={rightAxisTicks}
                 label={{ value: 'USD', angle: 90, position: 'insideRight' }}
-                tickFormatter={(value) => `$${value.toFixed(2)}`}
+                tickFormatter={(value) => (value < 0 ? '' : `$${value.toFixed(2)}`)}
               />
+              <ReferenceLine yAxisId="left" y={0} stroke="#94a3b8" strokeWidth={1} />
               <Tooltip content={<CustomTooltip />} />
               <ReferenceLine
                 yAxisId="right"
@@ -304,18 +430,62 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
                   opacity={0}
                 />
               )}
-              {breakEvenPoint && (
-                <Scatter
-                  yAxisId="right"
-                  data={breakEvenData}
-                  dataKey="valueUsd"
-                  fill="#22c55e"
-                  shape={renderStar}
-                  isAnimationActive={false}
-                />
-              )}
-            </LineChart>
+              <Area
+                yAxisId="left"
+                type="monotone"
+                dataKey="distributionY"
+                stroke="#7c3aed"
+                strokeWidth={3}
+                fill="#7c3aed"
+                fillOpacity={0.5}
+                baseValue={0}
+                isAnimationActive={false}
+              />
+              <Line
+                yAxisId="left"
+                type="monotone"
+                dataKey="distributionY"
+                stroke="#5b21b6"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
+          <div className="mt-4 pt-4 border-t border-border space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Constant a (calculated):{' '}
+              <span className="font-mono font-semibold text-foreground">
+                {new Intl.NumberFormat('en-US').format(Math.round(a))}
+              </span>
+              <span className="ml-1 text-xs">— Automatically calculated from Max Reward</span>
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Supply gap to bring break-even{' '}
+              {showCumulative && <span className="text-xs">(cumulative)</span>} (
+              <span className="font-mono font-semibold text-foreground">
+                {supplyGapResult.currentBreakEven != null
+                  ? supplyGapResult.currentBreakEven.toFixed(2)
+                  : '—'}
+              </span>
+              ) to avg (
+              <span className="font-mono font-semibold text-foreground">{avgPerformance}</span>
+              ):{' '}
+              <span className="font-mono font-semibold text-foreground">
+                {supplyGapResult.supplyDelta > 0 ? '+' : ''}
+                {new Intl.NumberFormat('en-US', {
+                  maximumFractionDigits: 0,
+                  minimumFractionDigits: 0,
+                }).format(supplyGapResult.supplyDelta)}
+              </span>
+              {supplyGapResult.supplyDelta !== 0 && (
+                <span className="ml-1">
+                  (~${Math.abs(supplyGapResult.supplyDelta * price).toFixed(2)})
+                </span>
+              )}
+              {supplyGapResult.supplyDelta === 0 && ' (already at target)'}
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -8,20 +8,25 @@ import { useState } from 'react'
 function App() {
   const [showCumulative, setShowCumulative] = useState(true)
   const [params, setParams] = useState({
-    maxReward: 100000,
-    b: 3,
-    k: 5,
-    P: 20,
-    T: 1000000000,
-    S: 1000000000,
+    maxReward: 300000,
+    b: 2,
+    k: 10,
+    P: 18,
+    T: 100_000_000,
+    S: 100_000_000,
     price: 0.0001,
     entryFee: 2.0,
+    avgPerformance: 14,
+    stdDeviation: 1.5,
   })
 
   const handleParamChange = (key: string, value: number) => {
     setParams((prev) => {
       const next = { ...prev, [key]: value }
-      if (key === 'P' && prev.b > value) next.b = value
+      if (key === 'P') {
+        if (prev.b > value) next.b = value
+        if (prev.avgPerformance > value) next.avgPerformance = value
+      }
       return next
     })
   }
@@ -36,8 +41,8 @@ function App() {
           <p className="text-slate-600 dark:text-slate-400">Reward curve simulator for games</p>
         </div>
 
-        <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
-          <div className="lg:col-span-1 h-full flex flex-col gap-6 overflow-hidden min-h-0">
+        <div className="h-full flex gap-6 overflow-hidden">
+          <div className="flex-[1] h-full flex flex-col gap-6 overflow-hidden min-h-0">
             <Card>
               <CardHeader>
                 <CardTitle>Formula</CardTitle>
@@ -52,7 +57,7 @@ function App() {
             </Card>
             <SimulationInputs params={params} onParamChange={handleParamChange} />
           </div>
-          <div className="lg:col-span-2 lg:sticky lg:top-8 lg:self-start h-full">
+          <div className="h-full flex-[2]">
             <RewardChart
               params={params}
               showCumulative={showCumulative}
