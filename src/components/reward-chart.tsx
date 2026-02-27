@@ -311,7 +311,7 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
     return null
   }, [chartDataWithFinal, chartData, breakEvenSimResult.converged, showCumulative, entryFee])
 
-  // Max USD from data for auto-scaling
+  // Max USD from data for auto-scaling (only include displayed curves)
   const maxUsd = useMemo(() => {
     let max = 0
     for (const d of chartDataWithFinal) {
@@ -321,16 +321,13 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
         yUsdFinal?: number
         cumulativeUsdFinal?: number
       }
-      max = Math.max(
-        max,
-        dd.yUsd ?? 0,
-        dd.cumulativeUsd ?? 0,
-        dd.yUsdFinal ?? 0,
-        dd.cumulativeUsdFinal ?? 0
-      )
+      max = Math.max(max, dd.yUsd ?? 0, dd.yUsdFinal ?? 0)
+      if (showCumulative) {
+        max = Math.max(max, dd.cumulativeUsd ?? 0, dd.cumulativeUsdFinal ?? 0)
+      }
     }
     return Math.max(max, entryFee, 1) * 1.05
-  }, [chartDataWithFinal, entryFee])
+  }, [chartDataWithFinal, entryFee, showCumulative])
 
   const distHeight = maxUsd * 0.25
 
@@ -417,33 +414,33 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
         cumulativeUsdFinal?: number
       }
       return (
-        <div className="bg-background border border-border rounded-lg p-3 shadow-lg space-y-1">
+        <div className="bg-background/10 border border-border rounded-lg p-3 shadow-lg space-y-1 backdrop-blur-sm">
           <p className="text-sm font-medium border-b border-border pb-1">Performance: {data.p}</p>
-          <p className="text-sm" style={{ color: '#ef4444' }}>
-            Entry fee: ${entryFee.toFixed(2)}
-          </p>
           <div className="space-y-0.5">
             <p className="text-sm" style={{ color: '#1f2937' }}>
-              Reward: {data.y} (${data.yUsd.toFixed(4)})
+              Initial reward: {data.y} (${data.yUsd.toFixed(2)})
             </p>
             {showCumulative && (
               <p className="text-sm" style={{ color: '#3b82f6' }}>
-                Cumulative: {data.cumulative} (${data.cumulativeUsd.toFixed(4)})
+                Initial cumulative: {data.cumulative} (${data.cumulativeUsd.toFixed(2)})
               </p>
             )}
             {breakEvenSimResult.converged && dd.yFinal != null && (
               <>
                 <p className="text-sm pt-1 border-t border-border" style={{ color: '#64748b' }}>
-                  Final reward: {dd.yFinal} (${(dd.yUsdFinal ?? 0).toFixed(4)})
+                  Final reward: {dd.yFinal} (${(dd.yUsdFinal ?? 0).toFixed(2)})
                 </p>
                 {showCumulative && dd.cumulativeFinal != null && (
                   <p className="text-sm" style={{ color: '#60a5fa' }}>
                     Final cumulative: {dd.cumulativeFinal} ( $
-                    {(dd.cumulativeUsdFinal ?? 0).toFixed(4)})
+                    {(dd.cumulativeUsdFinal ?? 0).toFixed(2)})
                   </p>
                 )}
               </>
             )}
+            <p className="text-sm pt-1 border-t border-border" style={{ color: '#ef4444' }}>
+              Entry fee: ${entryFee.toFixed(2)}
+            </p>
             <p className="text-sm" style={{ color: '#7c3aed' }}>
               Cumulative density: {(data.distributionCumulativePct ?? 0).toFixed(1)}% (population
               with p ≤ {data.p})
@@ -471,148 +468,216 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
           </label>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={400}>
-            <ComposedChart data={displayData} margin={{ top: 55, right: 30, left: 50, bottom: 25 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="p"
-                type="number"
-                domain={[0, P]}
-                ticks={xAxisTicks}
-                label={{ value: 'Performance (p)', position: 'insideBottom', offset: -10 }}
-              />
-              <YAxis
-                yAxisId="left"
-                domain={leftAxisDomain}
-                tick={false}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                domain={usdAxisDomain}
-                ticks={rightAxisTicks}
-                label={{ value: 'USD', angle: 0, position: 'top', offset: 15, dx: -30 }}
-                tickFormatter={(value) => (value < 0 ? '' : `$${value.toFixed(2)}`)}
-              />
-              <ReferenceLine yAxisId="left" y={0} stroke="#94a3b8" strokeWidth={1} />
-              <Tooltip content={<CustomTooltip />} />
-              <Area
-                yAxisId="left"
-                type="monotone"
-                dataKey="distributionY"
-                stroke="#7c3aed"
-                strokeWidth={0.75}
-                fill="#7c3aed"
-                fillOpacity={0.2}
-                baseValue={0}
-                isAnimationActive={false}
-              />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="distributionY"
-                stroke="#7c3aed"
-                strokeWidth={0.5}
-                dot={false}
-                isAnimationActive={false}
-              />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="yUsd"
-                stroke="#1f2937"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-                name="yUsd"
-              />
-              {showCumulative && (
+          <div className="relative">
+            <div className="absolute top-2 left-2 z-10 rounded border border-border bg-background/95 px-3 py-2 shadow-sm backdrop-blur">
+              <div className="space-y-1.5 text-xs">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-block h-1 w-4 shrink-0 self-center rounded"
+                    style={{ backgroundColor: '#1f2937' }}
+                  />
+                  <span>Initial reward</span>
+                </div>
+                {showCumulative && (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-1 w-4 shrink-0 self-center rounded"
+                      style={{ backgroundColor: '#3b82f6' }}
+                    />
+                    <span>Initial cumulative</span>
+                  </div>
+                )}
+                {breakEvenSimResult.converged && (
+                  <>
+                    <div className="flex items-center gap-2 pt-1 border-t border-border mt-1">
+                      <span className="inline-block h-1 w-4 shrink-0 self-center border-b-2 border-dashed border-[#64748b]" />
+                      <span>Final reward</span>
+                    </div>
+                    {showCumulative && (
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block h-1 w-4 shrink-0 self-center border-b-2 border-dashed border-[#60a5fa]" />
+                        <span>Final cumulative</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                <div className="flex items-center gap-2 pt-1 border-t border-border mt-1">
+                  <span
+                    className="inline-block h-1 w-4 shrink-0 self-center rounded"
+                    style={{ backgroundColor: '#ef4444' }}
+                  />
+                  <span>Entry fee</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-block h-1 w-4 shrink-0 self-center rounded"
+                    style={{ backgroundColor: '#22c55e' }}
+                  />
+                  <span>Break even (initial)</span>
+                </div>
+                {finalBreakEvenPoint != null && (
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block h-1 w-4 shrink-0 self-center border-b-2 border-dashed border-[#16a34a]" />
+                    <span>Break even (final)</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 pt-1 border-t border-border mt-1">
+                  <span
+                    className="inline-block h-1 w-4 shrink-0 self-center rounded"
+                    style={{ backgroundColor: '#7c3aed' }}
+                  />
+                  <span>Cumulative density</span>
+                </div>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              <ComposedChart
+                data={displayData}
+                margin={{ top: 55, right: 30, left: 50, bottom: 25 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="p"
+                  type="number"
+                  domain={[0, P]}
+                  ticks={xAxisTicks}
+                  label={{ value: 'Performance (p)', position: 'insideBottom', offset: -10 }}
+                />
+                <YAxis
+                  yAxisId="left"
+                  domain={leftAxisDomain}
+                  tick={false}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  domain={usdAxisDomain}
+                  ticks={rightAxisTicks}
+                  label={{ value: 'USD', angle: 0, position: 'top', offset: 15, dx: -30 }}
+                  tickFormatter={(value) => (value < 0 ? '' : `$${value.toFixed(2)}`)}
+                />
+                <ReferenceLine yAxisId="left" y={0} stroke="#94a3b8" strokeWidth={1} />
+                <Tooltip content={<CustomTooltip />} />
+                <Area
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="distributionY"
+                  name="distributionY"
+                  stroke="#7c3aed"
+                  strokeWidth={0.75}
+                  fill="#7c3aed"
+                  fillOpacity={0.2}
+                  baseValue={0}
+                  isAnimationActive={false}
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="distributionY"
+                  stroke="#7c3aed"
+                  strokeWidth={0.5}
+                  dot={false}
+                  isAnimationActive={false}
+                  legendType="none"
+                />
                 <Line
                   yAxisId="right"
                   type="monotone"
-                  dataKey="cumulativeUsd"
-                  stroke="#3b82f6"
+                  dataKey="yUsd"
+                  stroke="#1f2937"
                   strokeWidth={2}
                   dot={false}
                   isAnimationActive={false}
-                  name="cumulativeUsd"
+                  name="yUsd"
                 />
-              )}
-              {breakEvenSimResult.converged && (
-                <>
+                {showCumulative && (
                   <Line
                     yAxisId="right"
                     type="monotone"
-                    dataKey="yUsdFinal"
-                    stroke="#64748b"
-                    strokeWidth={1}
-                    strokeDasharray="5 5"
+                    dataKey="cumulativeUsd"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
                     dot={false}
                     isAnimationActive={false}
-                    name="yUsdFinal"
+                    name="cumulativeUsd"
                   />
-                  {showCumulative && (
+                )}
+                {breakEvenSimResult.converged && (
+                  <>
                     <Line
                       yAxisId="right"
                       type="monotone"
-                      dataKey="cumulativeUsdFinal"
-                      stroke="#60a5fa"
+                      dataKey="yUsdFinal"
+                      stroke="#64748b"
                       strokeWidth={1}
                       strokeDasharray="5 5"
                       dot={false}
                       isAnimationActive={false}
-                      name="cumulativeUsdFinal"
+                      name="yUsdFinal"
                     />
-                  )}
-                </>
-              )}
-              <ReferenceLine
-                yAxisId="right"
-                y={entryFee}
-                stroke="#ef4444"
-                strokeWidth={1}
-                label={{
-                  value: `Entry Fee: $${entryFee.toFixed(2)}`,
-                  position: 'left',
-                  fill: '#ef4444',
-                  fontSize: 12,
-                }}
-              />
-              {breakEvenPoint && (
+                    {showCumulative && (
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="cumulativeUsdFinal"
+                        stroke="#60a5fa"
+                        strokeWidth={1}
+                        strokeDasharray="5 5"
+                        dot={false}
+                        isAnimationActive={false}
+                        name="cumulativeUsdFinal"
+                      />
+                    )}
+                  </>
+                )}
                 <ReferenceLine
                   yAxisId="right"
-                  x={breakEvenPoint.p}
-                  stroke="#22c55e"
+                  y={entryFee}
+                  stroke="#ef4444"
                   strokeWidth={1}
                   label={{
-                    value: 'Break Even (initial)',
-                    position: 'top',
-                    offset: 5,
-                    fill: '#22c55e',
+                    value: `Entry Fee: $${entryFee.toFixed(2)}`,
+                    position: 'left',
+                    fill: '#ef4444',
                     fontSize: 12,
                   }}
                 />
-              )}
-              {finalBreakEvenPoint != null && (
-                <ReferenceLine
-                  yAxisId="right"
-                  x={finalBreakEvenPoint}
-                  stroke="#16a34a"
-                  strokeDasharray="5 5"
-                  strokeWidth={1}
-                  label={{
-                    value: 'Break Even (final)',
-                    position: 'top',
-                    offset: 25,
-                    fill: '#16a34a',
-                    fontSize: 12,
-                  }}
-                />
-              )}
-            </ComposedChart>
-          </ResponsiveContainer>
+                {breakEvenPoint && (
+                  <ReferenceLine
+                    yAxisId="right"
+                    x={breakEvenPoint.p}
+                    stroke="#22c55e"
+                    strokeWidth={1}
+                    label={{
+                      value: 'Break Even (initial)',
+                      position: 'top',
+                      offset: 5,
+                      fill: '#22c55e',
+                      fontSize: 12,
+                    }}
+                  />
+                )}
+                {finalBreakEvenPoint != null && (
+                  <ReferenceLine
+                    yAxisId="right"
+                    x={finalBreakEvenPoint}
+                    stroke="#16a34a"
+                    strokeDasharray="5 5"
+                    strokeWidth={1}
+                    label={{
+                      value: 'Break Even (final)',
+                      position: 'top',
+                      offset: 25,
+                      fill: '#16a34a',
+                      fontSize: 12,
+                    }}
+                  />
+                )}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
           <div className="mt-4 pt-4 border-t border-border space-y-2">
             <p className="text-sm text-muted-foreground">
               Constant a (calculated):{' '}
