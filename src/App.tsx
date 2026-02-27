@@ -12,10 +12,11 @@ function App() {
     b: 2,
     k: 10,
     P: 18,
-    T: 100_000_000,
-    S: 60_000_000,
-    initialLiquidity: 50_000_000,
-    price: 0.0002,
+    T: 50_000_000,
+    treasuryShare: 20,
+    buybackBurnRatio: 65,
+    initialLiquidity: 25_000_000,
+    price: 0.0004,
     entryFee: 2.0,
     avgPerformance: 14,
     stdDeviation: 1.5,
@@ -28,12 +29,14 @@ function App() {
         if (prev.b > value) next.b = value
         if (prev.avgPerformance > value) next.avgPerformance = value
       }
-      if (key === 'S') {
-        if (prev.initialLiquidity > value) next.initialLiquidity = value
+      if (key === 'treasuryShare') {
+        next.treasuryShare = Math.max(0, Math.min(100, Math.round(value)))
+      }
+      if (key === 'buybackBurnRatio') {
+        next.buybackBurnRatio = Math.max(0, Math.min(100, Math.round(value)))
       }
       if (key === 'T') {
-        if (prev.S > value * 2) next.S = value * 2
-        if (prev.initialLiquidity > next.S) next.initialLiquidity = next.S
+        if (prev.initialLiquidity > value * 2) next.initialLiquidity = value * 2
       }
       return next
     })

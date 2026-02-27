@@ -19,7 +19,8 @@ interface RewardChartProps {
     k: number
     P: number
     T: number
-    S: number
+    treasuryShare: number
+    buybackBurnRatio: number
     initialLiquidity: number
     price: number
     entryFee: number
@@ -37,7 +38,7 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
     k,
     P,
     T,
-    S,
+    treasuryShare,
     initialLiquidity,
     price,
     entryFee,
@@ -58,6 +59,15 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
 
     return maxReward / denominator
   }, [maxReward, b, k, P])
+
+  // Treasury supply = Initial liquidity × (treasury share / (100% - treasury share))
+  const treasurySupply = useMemo(() => {
+    if (treasuryShare >= 100) return 0
+    return initialLiquidity * (treasuryShare / (100 - treasuryShare))
+  }, [initialLiquidity, treasuryShare])
+
+  // Current supply = Treasury supply + Initial liquidity
+  const S = useMemo(() => treasurySupply + initialLiquidity, [treasurySupply, initialLiquidity])
 
   // Generate curve data with cumulative rewards and normal distribution (points at integer p only)
   const { chartData } = useMemo(() => {
@@ -697,6 +707,22 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
               </span>
             </p>
             <p className="text-sm text-muted-foreground">
+              Treasury supply:{' '}
+              <span className="font-mono font-semibold text-foreground">
+                {new Intl.NumberFormat('en-US').format(Math.round(treasurySupply))}
+              </span>
+              <span className="ml-1 text-xs">
+                (Initial liquidity × {treasuryShare}% ÷ {100 - treasuryShare}%)
+              </span>
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Initial supply:{' '}
+              <span className="font-mono font-semibold text-foreground">
+                {new Intl.NumberFormat('en-US').format(Math.round(S))}
+              </span>
+              <span className="ml-1 text-xs">(Treasury supply + Initial liquidity)</span>
+            </p>
+            <p className="text-sm text-muted-foreground">
               Break-even (
               <span className="font-mono font-semibold text-foreground">
                 {breakEvenSimResult.initialBreakEven != null
@@ -727,6 +753,16 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
                       minimumFractionDigits: 0,
                     }).format(breakEvenSimResult.supplyCreated)}
                   </span>
+                </p>
+                <p>
+                  Final supply:{' '}
+                  <span className="font-mono font-semibold text-foreground">
+                    {new Intl.NumberFormat('en-US', {
+                      maximumFractionDigits: 0,
+                      minimumFractionDigits: 0,
+                    }).format(S + breakEvenSimResult.supplyCreated)}
+                  </span>
+                  <span className="ml-1 text-xs">(Initial supply + Supply created)</span>
                 </p>
                 <p>
                   USD extracted from pool:{' '}

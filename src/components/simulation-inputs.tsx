@@ -10,7 +10,8 @@ interface SimulationInputsProps {
     k: number
     P: number
     T: number
-    S: number
+    treasuryShare: number
+    buybackBurnRatio: number
     initialLiquidity: number
     price: number
     entryFee: number
@@ -153,33 +154,7 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
           <p className="text-xs text-muted-foreground">Target supply (0 to 1B, step 5M)</p>
         </div>
 
-        {/* Slider for Current Supply (S) */}
-        <div className="space-y-3">
-          <Label htmlFor="s-slider" className="text-sm font-medium">
-            Current Supply (S)
-          </Label>
-          <div className="space-y-2">
-            <Slider
-              id="s-slider"
-              min={0}
-              max={params.T * 2}
-              step={params.T / 100}
-              value={[params.S]}
-              onValueChange={(values) => onParamChange('S', values[0])}
-              className="w-full"
-            />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>0</span>
-              <span className="font-medium text-foreground">
-                {formatNumber(Math.round(params.S))}
-              </span>
-              <span>{formatNumber(params.T * 2)}</span>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">Current supply value (0 to 2× Target)</p>
-        </div>
-
-        {/* Initial liquidity slider (0 to S) */}
+        {/* Initial liquidity slider */}
         <div className="space-y-3">
           <Label htmlFor="liquidity-slider" className="text-sm font-medium">
             Initial liquidity (pool)
@@ -188,7 +163,7 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
             <Slider
               id="liquidity-slider"
               min={0}
-              max={params.S}
+              max={params.T * 2}
               step={1_000_000}
               value={[params.initialLiquidity]}
               onValueChange={(values) => onParamChange('initialLiquidity', values[0])}
@@ -199,12 +174,60 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
               <span className="font-medium text-foreground">
                 {formatNumber(Math.round(params.initialLiquidity))}
               </span>
-              <span>{formatNumber(params.S)}</span>
+              <span>{formatNumber(params.T * 2)}</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Token liquidity in pool (0 to Current Supply, step 1M)
+            Token liquidity in pool (0 to 2× Target, step 1M)
           </p>
+        </div>
+
+        {/* Treasury share slider (0% to 100%, step 1%) */}
+        <div className="space-y-3">
+          <Label htmlFor="treasury-slider" className="text-sm font-medium">
+            Treasury share
+          </Label>
+          <div className="space-y-2">
+            <Slider
+              id="treasury-slider"
+              min={0}
+              max={100}
+              step={1}
+              value={[params.treasuryShare]}
+              onValueChange={(values) => onParamChange('treasuryShare', values[0])}
+              className="w-full"
+            />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>0%</span>
+              <span className="font-medium text-foreground">{params.treasuryShare}%</span>
+              <span>100%</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Treasury share (0–100%, step 1%)</p>
+        </div>
+
+        {/* Burn ratio slider (0% to 100%, step 1%) */}
+        <div className="space-y-3">
+          <Label htmlFor="buyback-slider" className="text-sm font-medium">
+            Burn ratio
+          </Label>
+          <div className="space-y-2">
+            <Slider
+              id="buyback-slider"
+              min={0}
+              max={100}
+              step={1}
+              value={[params.buybackBurnRatio]}
+              onValueChange={(values) => onParamChange('buybackBurnRatio', values[0])}
+              className="w-full"
+            />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>0%</span>
+              <span className="font-medium text-foreground">{params.buybackBurnRatio}%</span>
+              <span>100%</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Burn ratio (0–100%, step 1%)</p>
         </div>
 
         {/* Price input */}
