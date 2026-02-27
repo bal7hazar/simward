@@ -39,6 +39,7 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
     P,
     T,
     treasuryShare,
+    buybackBurnRatio,
     initialLiquidity,
     price,
     entryFee,
@@ -145,7 +146,7 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
     return { chartData: chartDataWithDist }
   }, [a, b, k, P, T, S, price, avgPerformance, stdDeviation, showCumulative])
 
-  // Iterative simulation: games at avg, tokens swapped for USD, pool + supply evolve until break-even = avg
+  // Two-phase simulation
   const breakEvenSimResult = useMemo(() => {
     const mu = avgPerformance
 
@@ -188,92 +189,206 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
       return null
     }
 
-    // Pool: constant product AMM. price = usd_reserve / token_reserve
+    const getTokensCreatedAtAvg = (s: number) => {
+      if (showCumulative) {
+        let cum = 0
+        for (let pVal = 1; pVal <= mu; pVal++) {
+          cum += ((rewardAt(pVal - 1, s) + rewardAt(pVal, s)) / 2) * 1
+        }
+        return cum
+      }
+      return rewardAt(mu, s)
+    }
+
     if (initialLiquidity <= 0 || price <= 0) {
       return {
-        supplyCreated: 0,
-        usdExtracted: 0,
-        finalPrice: price,
-        games: 0,
-        currentBreakEven: null,
+        phase1: {
+          games: 0,
+          supplyCreated: 0,
+          usdExtracted: 0,
+          tokenPrice: price,
+          converged: false,
+        },
+        phase2: {
+          games: 0,
+          supplyCreated: 0,
+          finalSupply: S,
+          finalTokenPrice: price,
+          converged: false,
+        },
         initialBreakEven: null,
+        equilibriumBreakEven: null,
         converged: false,
       }
     }
-    let tokenReserve = initialLiquidity
-    let usdReserve = initialLiquidity * price
 
-    let supply = S
-    let totalSupplyCreated = 0
-    let totalUsdExtracted = 0
     const maxIter = 500_000
     const tol = 0.01
-    const initialBreakEven = getBreakEven(S, usdReserve / tokenReserve)
+    const initialBreakEven = getBreakEven(S, (initialLiquidity * price) / initialLiquidity)
+
+    // Phase 1: Break-even initial → Break-even at average performance
+    let tokenReserve = initialLiquidity
+    let usdReserve = initialLiquidity * price
+    let supply = S
+    let phase1SupplyCreated = 0
+    let phase1UsdExtracted = 0
 
     for (let n = 0; n < maxIter; n++) {
       const currentPrice = usdReserve / tokenReserve
       const be = getBreakEven(supply, currentPrice)
       if (be !== null && Math.abs(be - mu) <= tol) {
+        const phase1TokenPrice = usdReserve / tokenReserve
+        const targetBurnUsd = (entryFee * buybackBurnRatio) / 100
+
+        // Phase 2: Average performance → Equilibrium (creation = burn)
+        let phase2SupplyCreated = 0
+        const phase2MaxIter = 500_000
+        const phase2Tol = 0.02
+
+        for (let n2 = 0; n2 < phase2MaxIter; n2++) {
+          const p2Price = usdReserve / tokenReserve
+          const y = getTokensCreatedAtAvg(supply)
+          const rewardUsd = y * p2Price
+          const atEquilibrium =
+            targetBurnUsd > 0 &&
+            Math.abs(rewardUsd - targetBurnUsd) <= Math.max(phase2Tol, targetBurnUsd * 0.02)
+
+          supply += y
+          phase2SupplyCreated += y
+          if (y > 0 && !atEquilibrium) {
+            const usdOut = (usdReserve * y) / (tokenReserve + y)
+            tokenReserve += y
+            usdReserve -= usdOut
+            if (usdReserve < 1e-10) usdReserve = 1e-10
+          }
+          // At equilibrium: players don't dump, tokens stay with them, pool unchanged
+
+          const usdIn = targetBurnUsd
+          const kProd = tokenReserve * usdReserve
+          const tokensOut = usdIn > 0 ? tokenReserve - kProd / (usdReserve + usdIn) : 0
+          const tokensToBurn = Math.min(Math.max(0, tokensOut), Math.max(0, supply - 1))
+          if (tokensToBurn > 1e-10) {
+            tokenReserve -= tokensToBurn
+            usdReserve += usdIn
+            supply -= tokensToBurn
+            phase2SupplyCreated -= tokensToBurn
+          }
+
+          if (atEquilibrium) {
+            const finalPrice = usdReserve / tokenReserve
+            const equilibriumBreakEven = getBreakEven(supply, finalPrice)
+            return {
+              phase1: {
+                games: n,
+                supplyCreated: phase1SupplyCreated,
+                usdExtracted: phase1UsdExtracted,
+                tokenPrice: phase1TokenPrice,
+                converged: true,
+              },
+              phase2: {
+                games: n2 + 1,
+                supplyCreated: phase2SupplyCreated,
+                finalSupply: supply,
+                finalTokenPrice: finalPrice,
+                converged: true,
+              },
+              initialBreakEven,
+              equilibriumBreakEven,
+              converged: true,
+            }
+          }
+        }
+
+        const finalPrice = usdReserve / tokenReserve
         return {
-          supplyCreated: totalSupplyCreated,
-          usdExtracted: totalUsdExtracted,
-          finalPrice: currentPrice,
-          games: n,
-          currentBreakEven: be,
+          phase1: {
+            games: n,
+            supplyCreated: phase1SupplyCreated,
+            usdExtracted: phase1UsdExtracted,
+            tokenPrice: phase1TokenPrice,
+            converged: true,
+          },
+          phase2: {
+            games: phase2MaxIter,
+            supplyCreated: phase2SupplyCreated,
+            finalSupply: supply,
+            finalTokenPrice: finalPrice,
+            converged: false,
+          },
           initialBreakEven,
-          converged: true,
+          equilibriumBreakEven: getBreakEven(supply, finalPrice),
+          converged: false,
         }
       }
 
       const y = rewardAt(mu, supply)
-
       if (be !== null && be > mu) {
-        // Break-even > average: need to destroy supply. Buy tokens with USD (entry fee) and burn.
         const usdIn = entryFee
         const kProd = tokenReserve * usdReserve
         const tokensOut = tokenReserve - kProd / (usdReserve + usdIn)
         const tokensToBurn = Math.min(Math.max(0, tokensOut), Math.max(0, supply - 1))
         if (tokensToBurn > 1e-10) {
-          const usdActuallyUsed = kProd / (tokenReserve - tokensToBurn) - usdReserve
           tokenReserve -= tokensToBurn
-          usdReserve += usdActuallyUsed
+          usdReserve += usdIn
           supply -= tokensToBurn
-          totalSupplyCreated -= tokensToBurn
-          totalUsdExtracted -= usdActuallyUsed
+          phase1SupplyCreated -= tokensToBurn
         }
       } else {
-        // Break-even <= average: mint and swap for USD
         supply += y
-        totalSupplyCreated += y
+        phase1SupplyCreated += y
         if (y > 0) {
           const usdOut = (usdReserve * y) / (tokenReserve + y)
           tokenReserve += y
           usdReserve -= usdOut
-          totalUsdExtracted += usdOut
+          phase1UsdExtracted += usdOut
           if (usdReserve < 1e-10) usdReserve = 1e-10
         }
       }
     }
 
     const currentPrice = usdReserve / tokenReserve
-    const be = getBreakEven(supply, currentPrice)
     return {
-      supplyCreated: totalSupplyCreated,
-      usdExtracted: totalUsdExtracted,
-      finalPrice: currentPrice,
-      games: maxIter,
-      currentBreakEven: be,
+      phase1: {
+        games: maxIter,
+        supplyCreated: phase1SupplyCreated,
+        usdExtracted: phase1UsdExtracted,
+        tokenPrice: currentPrice,
+        converged: false,
+      },
+      phase2: {
+        games: 0,
+        supplyCreated: 0,
+        finalSupply: supply,
+        finalTokenPrice: currentPrice,
+        converged: false,
+      },
       initialBreakEven,
+      equilibriumBreakEven: getBreakEven(supply, currentPrice),
       converged: false,
     }
-  }, [a, b, k, P, T, S, initialLiquidity, price, entryFee, avgPerformance, showCumulative])
+  }, [
+    a,
+    b,
+    k,
+    P,
+    T,
+    S,
+    initialLiquidity,
+    price,
+    entryFee,
+    avgPerformance,
+    buybackBurnRatio,
+    showCumulative,
+  ])
 
   // Final state chart data (when simulation converged): reward/cumulative with final supply & price
   const chartDataWithFinal = useMemo(() => {
     if (!breakEvenSimResult.converged) return chartData
 
-    const finalSupply = S + breakEvenSimResult.supplyCreated
-    const finalPrice = breakEvenSimResult.finalPrice
+    const totalSupplyCreated =
+      breakEvenSimResult.phase1.supplyCreated + breakEvenSimResult.phase2.supplyCreated
+    const finalSupply = S + totalSupplyCreated
+    const finalPrice = breakEvenSimResult.phase2.finalTokenPrice
 
     const rewardAt = (p: number, supply: number): number => {
       const numerator = a * (1 - (supply - T) / T)
@@ -303,9 +418,11 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
     })
   }, [chartData, breakEvenSimResult, a, b, k, P, T, S])
 
-  // Final break-even point (vertical line)
-  const finalBreakEvenPoint = useMemo(() => {
+  // Equilibrium break-even from chart data (uses displayed curve: cumulative or reward)
+  const equilibriumBreakEvenPoint = useMemo(() => {
     if (!breakEvenSimResult.converged || chartDataWithFinal === chartData) return null
+    // 100% burn: equilibrium break-even = avg performance exactly (no interpolation)
+    if (buybackBurnRatio >= 99.99) return avgPerformance
     const valueKey = showCumulative ? 'cumulativeUsdFinal' : 'yUsdFinal'
     type WithFinal = { p: number } & Record<string, number | undefined>
     for (let i = 1; i < chartDataWithFinal.length; i++) {
@@ -319,7 +436,15 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
       }
     }
     return null
-  }, [chartDataWithFinal, chartData, breakEvenSimResult.converged, showCumulative, entryFee])
+  }, [
+    chartDataWithFinal,
+    chartData,
+    breakEvenSimResult.converged,
+    showCumulative,
+    entryFee,
+    buybackBurnRatio,
+    avgPerformance,
+  ])
 
   // Max USD from data for auto-scaling (only include displayed curves)
   const maxUsd = useMemo(() => {
@@ -525,10 +650,10 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
                   />
                   <span>Break even (initial)</span>
                 </div>
-                {finalBreakEvenPoint != null && (
+                {equilibriumBreakEvenPoint != null && (
                   <div className="flex items-center gap-2">
                     <span className="inline-block h-1 w-4 shrink-0 self-center border-b-2 border-dashed border-[#16a34a]" />
-                    <span>Break even (final)</span>
+                    <span>Break Even (Equilibrium)</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2 pt-1 border-t border-border mt-1">
@@ -669,15 +794,15 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
                     }}
                   />
                 )}
-                {finalBreakEvenPoint != null && (
+                {equilibriumBreakEvenPoint != null && (
                   <ReferenceLine
                     yAxisId="right"
-                    x={finalBreakEvenPoint}
+                    x={equilibriumBreakEvenPoint}
                     stroke="#16a34a"
                     strokeDasharray="5 5"
                     strokeWidth={1}
                     label={{
-                      value: 'Break Even (final)',
+                      value: 'Break Even (Equilibrium)',
                       position: 'top',
                       offset: 25,
                       fill: '#16a34a',
@@ -688,7 +813,7 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-4 pt-4 border-t border-border space-y-2">
+          <div className="mt-4 pt-4 border-t border-border space-y-2 max-h-64 overflow-y-auto">
             <p className="text-sm text-muted-foreground">
               Constant a (calculated):{' '}
               <span className="font-mono font-semibold text-foreground">
@@ -723,35 +848,85 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
               <span className="ml-1 text-xs">(Treasury supply + Initial liquidity)</span>
             </p>
             <p className="text-sm text-muted-foreground">
-              Break-even (
+              Break-even (initial):{' '}
               <span className="font-mono font-semibold text-foreground">
                 {breakEvenSimResult.initialBreakEven != null
                   ? breakEvenSimResult.initialBreakEven.toFixed(2)
                   : '—'}
               </span>
-              ) to Average Score (
-              <span className="font-mono font-semibold text-foreground">{avgPerformance}</span>){' '}
-              {showCumulative && <span className="text-xs">(cumulative)</span>}
+              {' → '}
+              Avg ({avgPerformance})
+              {breakEvenSimResult.converged && (
+                <>
+                  {' → '}
+                  Equilibrium (
+                  <span className="font-mono font-semibold text-foreground">
+                    {equilibriumBreakEvenPoint != null ? equilibriumBreakEvenPoint.toFixed(2) : '—'}
+                  </span>
+                  ){showCumulative && <span className="text-xs"> (cumulative)</span>}
+                </>
+              )}
               {breakEvenSimResult.converged === false && (
                 <span className="ml-1 text-amber-600">— Did not converge</span>
               )}
             </p>
-            {breakEvenSimResult.converged !== false && (
+            {breakEvenSimResult.phase1.converged && (
               <div className="text-sm text-muted-foreground space-y-1 pl-2 border-l-2 border-border">
+                <p className="font-medium">Initial → Avg performance:</p>
                 <p>
-                  Games played (avg. performance):{' '}
+                  Games played:{' '}
                   <span className="font-mono font-semibold text-foreground">
-                    ~{new Intl.NumberFormat('en-US').format(breakEvenSimResult.games)}
+                    ~{new Intl.NumberFormat('en-US').format(breakEvenSimResult.phase1.games)}
                   </span>
                 </p>
                 <p>
                   Supply created:{' '}
                   <span className="font-mono font-semibold text-foreground">
-                    {breakEvenSimResult.supplyCreated >= 0 ? '+' : ''}
+                    {breakEvenSimResult.phase1.supplyCreated >= 0 ? '+' : ''}
                     {new Intl.NumberFormat('en-US', {
                       maximumFractionDigits: 0,
                       minimumFractionDigits: 0,
-                    }).format(breakEvenSimResult.supplyCreated)}
+                    }).format(breakEvenSimResult.phase1.supplyCreated)}
+                  </span>
+                </p>
+                <p>
+                  USD extracted:{' '}
+                  <span className="font-mono font-semibold text-foreground">
+                    {breakEvenSimResult.phase1.usdExtracted >= 0 ? '+' : ''}$
+                    {breakEvenSimResult.phase1.usdExtracted.toFixed(2)}
+                  </span>
+                </p>
+                <p>
+                  Token price:{' '}
+                  <span className="font-mono font-semibold text-foreground">
+                    ${breakEvenSimResult.phase1.tokenPrice.toFixed(6)}
+                  </span>
+                </p>
+              </div>
+            )}
+            {breakEvenSimResult.phase1.converged && (
+              <div className="text-sm text-muted-foreground space-y-1 pl-2 border-l-2 border-border mt-2">
+                <p className="font-medium">
+                  Avg performance → Equilibrium
+                  {!breakEvenSimResult.phase2.converged && (
+                    <span className="ml-1 text-amber-600">(did not converge)</span>
+                  )}
+                  :
+                </p>
+                <p>
+                  Games played:{' '}
+                  <span className="font-mono font-semibold text-foreground">
+                    ~{new Intl.NumberFormat('en-US').format(breakEvenSimResult.phase2.games)}
+                  </span>
+                </p>
+                <p>
+                  Supply created:{' '}
+                  <span className="font-mono font-semibold text-foreground">
+                    {breakEvenSimResult.phase2.supplyCreated >= 0 ? '+' : ''}
+                    {new Intl.NumberFormat('en-US', {
+                      maximumFractionDigits: 0,
+                      minimumFractionDigits: 0,
+                    }).format(breakEvenSimResult.phase2.supplyCreated)}
                   </span>
                 </p>
                 <p>
@@ -760,21 +935,13 @@ export function RewardChart({ params, showCumulative, onShowCumulativeChange }: 
                     {new Intl.NumberFormat('en-US', {
                       maximumFractionDigits: 0,
                       minimumFractionDigits: 0,
-                    }).format(S + breakEvenSimResult.supplyCreated)}
-                  </span>
-                  <span className="ml-1 text-xs">(Initial supply + Supply created)</span>
-                </p>
-                <p>
-                  USD extracted from pool:{' '}
-                  <span className="font-mono font-semibold text-foreground">
-                    {breakEvenSimResult.usdExtracted >= 0 ? '+' : ''}$
-                    {breakEvenSimResult.usdExtracted.toFixed(2)}
+                    }).format(breakEvenSimResult.phase2.finalSupply)}
                   </span>
                 </p>
                 <p>
                   Final token price:{' '}
                   <span className="font-mono font-semibold text-foreground">
-                    ${breakEvenSimResult.finalPrice.toFixed(6)}
+                    ${breakEvenSimResult.phase2.finalTokenPrice.toFixed(6)}
                   </span>
                 </p>
               </div>
