@@ -20,7 +20,7 @@ function App() {
     price: 0.0001,
     initialLiquidity: 100_000_000,
     finalPerformance: 14,
-    treasuryShare: 10,
+    treasuryShare: 20,
     stdDeviation: 1.5,
   })
 
