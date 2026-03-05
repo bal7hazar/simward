@@ -6,19 +6,20 @@ import 'katex/dist/katex.min.css'
 import { useState } from 'react'
 
 function App() {
-  const [showCumulative, setShowCumulative] = useState(true)
   const [params, setParams] = useState({
-    maxReward: 300000,
-    b: 2,
+    maxReward: 500_000,
+    b: 3,
     k: 10,
     P: 18,
-    T: 50_000_000,
-    treasuryShare: 20,
-    buybackBurnRatio: 65,
-    initialLiquidity: 25_000_000,
-    price: 0.0004,
+    emaMaxWeight: 1000,
+    emaInitialWeight: 100,
     entryFee: 2.0,
-    avgPerformance: 14,
+    buybackBurnRatio: 70,
+    T: 100_000_000,
+    initialPerformance: 12,
+    price: 0.0001,
+    initialLiquidity: 100_000_000,
+    finalPerformance: 14,
     stdDeviation: 1.5,
   })
 
@@ -27,10 +28,8 @@ function App() {
       const next = { ...prev, [key]: value }
       if (key === 'P') {
         if (prev.b > value) next.b = value
-        if (prev.avgPerformance > value) next.avgPerformance = value
-      }
-      if (key === 'treasuryShare') {
-        next.treasuryShare = Math.max(0, Math.min(100, Math.round(value)))
+        if (prev.finalPerformance > value) next.finalPerformance = value
+        if (prev.initialPerformance > value) next.initialPerformance = value
       }
       if (key === 'buybackBurnRatio') {
         next.buybackBurnRatio = Math.max(0, Math.min(100, Math.round(value)))
@@ -69,11 +68,7 @@ function App() {
             <SimulationInputs params={params} onParamChange={handleParamChange} />
           </div>
           <div className="h-full flex-[2]">
-            <RewardChart
-              params={params}
-              showCumulative={showCumulative}
-              onShowCumulativeChange={setShowCumulative}
-            />
+            <RewardChart params={params} />
           </div>
         </div>
       </div>

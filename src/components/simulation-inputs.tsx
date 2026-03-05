@@ -9,246 +9,290 @@ interface SimulationInputsProps {
     b: number
     k: number
     P: number
-    T: number
-    treasuryShare: number
-    buybackBurnRatio: number
-    initialLiquidity: number
-    price: number
+    emaMaxWeight: number
+    emaInitialWeight: number
     entryFee: number
-    avgPerformance: number
+    buybackBurnRatio: number
+    T: number
+    initialPerformance: number
+    price: number
+    initialLiquidity: number
+    finalPerformance: number
     stdDeviation: number
   }
   onParamChange: (key: string, value: number) => void
 }
 
-export function SimulationInputs({ params, onParamChange }: SimulationInputsProps) {
-  const inputs = [
-    { key: 'entryFee', label: 'Entry Fee (USD)', description: 'Entry fee in USD' },
-    { key: 'maxReward', label: 'Max Reward', description: 'Reward at maximum performance' },
-    { key: 'k', label: 'Constant k', description: 'Customization exponent' },
-    { key: 'P', label: 'Max Performance (P)', description: 'Maximum performance value' },
-    { key: 'price', label: 'Initial Price (USD)', description: 'Initial price per token in pool' },
-  ]
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+        {title}
+      </span>
+      <div className="flex-1 h-px bg-border" />
+    </div>
+  )
+}
 
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat('en-US').format(num)
+function NumberRow({
+  id,
+  label,
+  value,
+  step,
+  onChange,
+}: {
+  id: string
+  label: string
+  value: number
+  step: string
+  onChange: (v: number) => void
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <Label htmlFor={id} className="text-sm font-medium w-36 shrink-0">
+        {label}
+      </Label>
+      <Input
+        id={id}
+        type="number"
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number.parseFloat(e.target.value) || 0)}
+        className="flex-1 h-8 text-sm"
+      />
+    </div>
+  )
+}
+
+function LogSliderRow({
+  id,
+  label,
+  max,
+  value,
+  onChange,
+}: {
+  id: string
+  label: string
+  max: number
+  value: number
+  onChange: (v: number) => void
+}) {
+  const STEPS = 1000
+
+  const toInternal = (v: number) => {
+    if (v <= 0 || max <= 0) return 0
+    if (v >= max) return STEPS
+    return Math.round((Math.log(v) / Math.log(max)) * STEPS)
   }
+
+  const fromInternal = (internal: number) => {
+    if (internal <= 0) return 0
+    if (internal >= STEPS) return max
+    return Math.round(max ** (internal / STEPS))
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <Label htmlFor={id} className="text-sm font-medium w-36 shrink-0">
+        {label}
+      </Label>
+      <div className="flex-1 flex items-center gap-2">
+        <Slider
+          id={id}
+          min={0}
+          max={STEPS}
+          step={1}
+          value={[toInternal(value)]}
+          onValueChange={(values) => onChange(fromInternal(values[0]))}
+          className="flex-1"
+        />
+        <span className="text-xs font-medium text-foreground w-16 text-right tabular-nums">
+          {value}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function SliderRow({
+  id,
+  label,
+  min,
+  max,
+  step,
+  value,
+  format,
+  onChange,
+}: {
+  id: string
+  label: string
+  min: number
+  max: number
+  step: number
+  value: number
+  format: (v: number) => string
+  onChange: (v: number) => void
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <Label htmlFor={id} className="text-sm font-medium w-36 shrink-0">
+        {label}
+      </Label>
+      <div className="flex-1 flex items-center gap-2">
+        <Slider
+          id={id}
+          min={min}
+          max={max}
+          step={step}
+          value={[value]}
+          onValueChange={(values) => onChange(values[0])}
+          className="flex-1"
+        />
+        <span className="text-xs font-medium text-foreground w-16 text-right tabular-nums">
+          {format(value)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+export function SimulationInputs({ params, onParamChange }: SimulationInputsProps) {
+  const fmt = (n: number) => new Intl.NumberFormat('en-US').format(n)
 
   return (
     <Card className="h-full min-h-0 overflow-hidden flex flex-col">
       <CardHeader>
         <CardTitle>Parameters</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6 overflow-y-auto h-full min-h-0 scrollbar-hide">
-        {/* Entry Fee, Max Reward, k, P */}
-        {inputs
-          .filter((input) => ['entryFee', 'maxReward', 'k', 'P'].includes(input.key))
-          .map(({ key, label, description }) => (
-            <div key={key} className="space-y-2">
-              <Label htmlFor={key} className="text-sm font-medium">
-                {label}
-              </Label>
-              <Input
-                id={key}
-                type="number"
-                step={key === 'maxReward' ? '1' : key === 'entryFee' ? '0.01' : '0.1'}
-                value={params[key as keyof typeof params]}
-                onChange={(e) => onParamChange(key, Number.parseFloat(e.target.value) || 0)}
-                className="w-full"
-              />
-              <p className="text-xs text-muted-foreground">{description}</p>
-            </div>
-          ))}
+      <CardContent className="space-y-3 overflow-y-auto h-full min-h-0 scrollbar-hide">
+        {/* ── Curve shape ──────────────────────────────────────── */}
+        <SectionHeader title="Curve shape" />
 
-        {/* Slider for constant b (range 0 to Max Performance) */}
-        <div className="space-y-3">
-          <Label htmlFor="b-slider" className="text-sm font-medium">
-            Constant b
-          </Label>
-          <div className="space-y-2">
-            <Slider
-              id="b-slider"
-              min={0}
-              max={params.P}
-              step={1}
-              value={[params.b]}
-              onValueChange={(values) => onParamChange('b', Math.round(values[0]))}
-              className="w-full"
-            />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>0</span>
-              <span className="font-medium text-foreground">{Math.round(params.b)}</span>
-              <span>{params.P}</span>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">Performance offset (0 to Max Performance)</p>
-        </div>
+        <NumberRow
+          id="maxReward"
+          label="Max Reward"
+          value={params.maxReward}
+          step="1"
+          onChange={(v) => onParamChange('maxReward', v)}
+        />
+        <NumberRow
+          id="k"
+          label="Constant k"
+          value={params.k}
+          step="1"
+          onChange={(v) => onParamChange('k', v)}
+        />
+        <NumberRow
+          id="P"
+          label="Max Performance (P)"
+          value={params.P}
+          step="1"
+          onChange={(v) => onParamChange('P', v)}
+        />
+        <SliderRow
+          id="b-slider"
+          label="Constant b"
+          min={0}
+          max={params.P}
+          step={1}
+          value={params.b}
+          format={(v) => String(Math.round(v))}
+          onChange={(v) => onParamChange('b', Math.round(v))}
+        />
 
-        {/* Average performance input */}
-        <div className="space-y-2">
-          <Label htmlFor="avgPerformance" className="text-sm font-medium">
-            Average performance
-          </Label>
-          <Input
-            id="avgPerformance"
-            type="number"
-            step="0.1"
-            min={0}
-            max={params.P}
-            value={params.avgPerformance}
-            onChange={(e) =>
-              onParamChange('avgPerformance', Number.parseFloat(e.target.value) || 0)
-            }
-            className="w-full"
-          />
-          <p className="text-xs text-muted-foreground">Mean of population distribution (μ)</p>
-        </div>
+        {/* ── Model ────────────────────────────────────────────── */}
+        <SectionHeader title="Model" />
 
-        {/* Standard deviation slider */}
-        <div className="space-y-3">
-          <Label htmlFor="std-slider" className="text-sm font-medium">
-            Standard deviation
-          </Label>
-          <div className="space-y-2">
-            <Slider
-              id="std-slider"
-              min={0.1}
-              max={params.P / 2}
-              step={0.1}
-              value={[params.stdDeviation]}
-              onValueChange={(values) => onParamChange('stdDeviation', values[0])}
-              className="w-full"
-            />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>0.1</span>
-              <span className="font-medium text-foreground">{params.stdDeviation.toFixed(1)}</span>
-              <span>{params.P / 2}</span>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">Spread of population distribution (σ)</p>
-        </div>
+        <NumberRow
+          id="initialPerformance"
+          label="Initial Performance"
+          value={params.initialPerformance}
+          step="0.1"
+          onChange={(v) => onParamChange('initialPerformance', v)}
+        />
+        <NumberRow
+          id="finalPerformance"
+          label="Final Performance"
+          value={params.finalPerformance}
+          step="0.1"
+          onChange={(v) => onParamChange('finalPerformance', v)}
+        />
+        <NumberRow
+          id="emaMaxWeight"
+          label="EMA Max Weight"
+          value={params.emaMaxWeight}
+          step="1"
+          onChange={(v) => onParamChange('emaMaxWeight', v)}
+        />
+        <LogSliderRow
+          id="ema-initial-weight-slider"
+          label="EMA Initial Weight"
+          max={params.emaMaxWeight}
+          value={params.emaInitialWeight}
+          onChange={(v) => onParamChange('emaInitialWeight', v)}
+        />
+        <NumberRow
+          id="entryFee"
+          label="Entry Fee (USD)"
+          value={params.entryFee}
+          step="0.01"
+          onChange={(v) => onParamChange('entryFee', v)}
+        />
+        <SliderRow
+          id="buyback-slider"
+          label="Burn Ratio"
+          min={0}
+          max={100}
+          step={1}
+          value={params.buybackBurnRatio}
+          format={(v) => `${Math.round(v)}%`}
+          onChange={(v) => onParamChange('buybackBurnRatio', v)}
+        />
+        <SliderRow
+          id="t-slider"
+          label="Target Supply (T)"
+          min={0}
+          max={1_000_000_000}
+          step={5_000_000}
+          value={params.T}
+          format={(v) => fmt(Math.round(v))}
+          onChange={(v) => onParamChange('T', v)}
+        />
 
-        {/* Target Supply slider (0 to 1B, step 1M) */}
-        <div className="space-y-3">
-          <Label htmlFor="t-slider" className="text-sm font-medium">
-            Target Supply (T)
-          </Label>
-          <div className="space-y-2">
-            <Slider
-              id="t-slider"
-              min={0}
-              max={1_000_000_000}
-              step={5_000_000}
-              value={[params.T]}
-              onValueChange={(values) => onParamChange('T', values[0])}
-              className="w-full"
-            />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>0</span>
-              <span className="font-medium text-foreground">
-                {formatNumber(Math.round(params.T))}
-              </span>
-              <span>{formatNumber(1_000_000_000)}</span>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">Target supply (0 to 1B, step 5M)</p>
-        </div>
+        {/* ── Initial state ────────────────────────────────────── */}
+        <SectionHeader title="Initial state" />
 
-        {/* Initial liquidity slider */}
-        <div className="space-y-3">
-          <Label htmlFor="liquidity-slider" className="text-sm font-medium">
-            Initial liquidity (pool)
-          </Label>
-          <div className="space-y-2">
-            <Slider
-              id="liquidity-slider"
-              min={0}
-              max={params.T * 2}
-              step={1_000_000}
-              value={[params.initialLiquidity]}
-              onValueChange={(values) => onParamChange('initialLiquidity', values[0])}
-              className="w-full"
-            />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>0</span>
-              <span className="font-medium text-foreground">
-                {formatNumber(Math.round(params.initialLiquidity))}
-              </span>
-              <span>{formatNumber(params.T * 2)}</span>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Token liquidity in pool (0 to 2× Target, step 1M)
-          </p>
-        </div>
+        <NumberRow
+          id="price"
+          label="Initial Price (USD)"
+          value={params.price}
+          step="0.0001"
+          onChange={(v) => onParamChange('price', v)}
+        />
+        <SliderRow
+          id="liquidity-slider"
+          label="Initial Liquidity"
+          min={0}
+          max={params.T * 2}
+          step={1_000_000}
+          value={params.initialLiquidity}
+          format={(v) => fmt(Math.round(v))}
+          onChange={(v) => onParamChange('initialLiquidity', v)}
+        />
 
-        {/* Treasury share slider (0% to 100%, step 1%) */}
-        <div className="space-y-3">
-          <Label htmlFor="treasury-slider" className="text-sm font-medium">
-            Treasury share
-          </Label>
-          <div className="space-y-2">
-            <Slider
-              id="treasury-slider"
-              min={0}
-              max={100}
-              step={1}
-              value={[params.treasuryShare]}
-              onValueChange={(values) => onParamChange('treasuryShare', values[0])}
-              className="w-full"
-            />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>0%</span>
-              <span className="font-medium text-foreground">{params.treasuryShare}%</span>
-              <span>100%</span>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">Treasury share (0–100%, step 1%)</p>
-        </div>
+        {/* ── Miscellaneous ────────────────────────────────────── */}
+        <SectionHeader title="Miscellaneous" />
 
-        {/* Burn ratio slider (0% to 100%, step 1%) */}
-        <div className="space-y-3">
-          <Label htmlFor="buyback-slider" className="text-sm font-medium">
-            Burn ratio
-          </Label>
-          <div className="space-y-2">
-            <Slider
-              id="buyback-slider"
-              min={0}
-              max={100}
-              step={1}
-              value={[params.buybackBurnRatio]}
-              onValueChange={(values) => onParamChange('buybackBurnRatio', values[0])}
-              className="w-full"
-            />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>0%</span>
-              <span className="font-medium text-foreground">{params.buybackBurnRatio}%</span>
-              <span>100%</span>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">Burn ratio (0–100%, step 1%)</p>
-        </div>
-
-        {/* Price input */}
-        {inputs
-          .filter((input) => input.key === 'price')
-          .map(({ key, label, description }) => (
-            <div key={key} className="space-y-2">
-              <Label htmlFor={key} className="text-sm font-medium">
-                {label}
-              </Label>
-              <Input
-                id={key}
-                type="number"
-                step={key === 'price' ? '0.0001' : '0.01'}
-                value={params[key as keyof typeof params]}
-                onChange={(e) => onParamChange(key, Number.parseFloat(e.target.value) || 0)}
-                className="w-full"
-              />
-              <p className="text-xs text-muted-foreground">{description}</p>
-            </div>
-          ))}
+        <SliderRow
+          id="std-slider"
+          label="Std Deviation"
+          min={0.1}
+          max={params.P / 2}
+          step={0.1}
+          value={params.stdDeviation}
+          format={(v) => v.toFixed(1)}
+          onChange={(v) => onParamChange('stdDeviation', v)}
+        />
       </CardContent>
     </Card>
   )
