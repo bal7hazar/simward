@@ -18,6 +18,7 @@ interface SimulationInputsProps {
     price: number
     initialLiquidity: number
     finalPerformance: number
+    treasuryShare: number
     stdDeviation: number
   }
   onParamChange: (key: string, value: number) => void
@@ -278,6 +279,16 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
           value={params.initialLiquidity}
           format={(v) => fmt(Math.round(v))}
           onChange={(v) => onParamChange('initialLiquidity', v)}
+        />
+        <SliderRow
+          id="treasury-share-slider"
+          label="Treasury Share"
+          min={0}
+          max={50}
+          step={1}
+          value={params.treasuryShare}
+          format={(v) => `${Math.round(v)}%`}
+          onChange={(v) => onParamChange('treasuryShare', v)}
         />
 
         {/* ── Miscellaneous ────────────────────────────────────── */}

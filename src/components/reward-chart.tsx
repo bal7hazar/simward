@@ -27,6 +27,7 @@ interface RewardChartProps {
     price: number
     initialLiquidity: number
     finalPerformance: number
+    treasuryShare: number
     stdDeviation: number
   }
 }
@@ -43,6 +44,7 @@ export function RewardChart({ params }: RewardChartProps) {
     price,
     entryFee,
     finalPerformance,
+    treasuryShare,
     stdDeviation,
     initialPerformance,
     emaInitialWeight,
@@ -63,8 +65,11 @@ export function RewardChart({ params }: RewardChartProps) {
     return maxReward / denominator
   }, [maxReward, b, k, P])
 
-  // Current supply = Initial liquidity (treasury share dropped)
-  const S = useMemo(() => initialLiquidity, [initialLiquidity])
+  // Initial supply includes treasury share: pool tokens + treasury tokens
+  const S = useMemo(
+    () => initialLiquidity * (1 + treasuryShare / 100),
+    [initialLiquidity, treasuryShare]
+  )
 
   // Full simulation: each game scores finalPerformance until burn ≈ reward
   const simulation = useMemo(() => {
@@ -89,6 +94,7 @@ export function RewardChart({ params }: RewardChartProps) {
       multiplierAt2: number
       price: number
       maxRewardUsd: number
+      treasurySharePct: number | null
     }
 
     const buildSnapshot = (
@@ -130,6 +136,13 @@ export function RewardChart({ params }: RewardChartProps) {
 
       const maxRewardUsd = rewardAt(P, sup) * multiplierAt2 * curPrice
 
+      // Treasury share: initial treasury tokens as % of total new tokens in this snapshot
+      const totalShareDenom = sup - initialLiquidity
+      const treasurySharePct =
+        totalShareDenom > 0
+          ? ((initialLiquidity * (treasuryShare / 100)) / totalShareDenom) * 100
+          : null
+
       return {
         games: gamesPlayed,
         avgPerformance: emaAvg,
@@ -142,6 +155,7 @@ export function RewardChart({ params }: RewardChartProps) {
         multiplierAt2,
         price: curPrice,
         maxRewardUsd,
+        treasurySharePct,
       }
     }
 
@@ -219,6 +233,7 @@ export function RewardChart({ params }: RewardChartProps) {
     buybackBurnRatio,
     initialPerformance,
     finalPerformance,
+    treasuryShare,
     emaInitialWeight,
     emaMaxWeight,
   ])
@@ -622,7 +637,7 @@ export function RewardChart({ params }: RewardChartProps) {
                 ]
                 type Snap = typeof simulation.initial | null
                 const redCells: Record<string, string[]> = {
-                  Inflexion: ['Avg paid', 'Avg mint'],
+                  Inflexion: ['Avg entry fee', 'Avg mint'],
                   Equilibrium: ['Avg burn', 'Avg mint'],
                 }
                 const greenCells: Record<string, string[]> = {
@@ -638,10 +653,22 @@ export function RewardChart({ params }: RewardChartProps) {
                   },
                   { label: 'Supply', render: (s) => (s == null ? '—' : fmtInt(s.supply)) },
                   {
+                    label: 'Treasury share',
+                    render: (s) =>
+                      s == null
+                        ? '—'
+                        : s.treasurySharePct == null
+                          ? 'N/A'
+                          : `${fmt(s.treasurySharePct, 2)}%`,
+                  },
+                  {
                     label: 'USD in pool',
                     render: (s) => (s == null ? '—' : `$${fmt(s.usdInPool, 2)}`),
                   },
-                  { label: 'Avg paid', render: (s) => (s == null ? '—' : `${fmt(s.avgPaid, 2)}`) },
+                  {
+                    label: 'Avg entry fee',
+                    render: (s) => (s == null ? '—' : `${fmt(s.avgPaid, 2)}`),
+                  },
                   { label: 'Avg burn', render: (s) => (s == null ? '—' : `${fmt(s.avgBurn, 2)}`) },
                   {
                     label: 'Avg mint',
@@ -700,6 +727,79 @@ export function RewardChart({ params }: RewardChartProps) {
                             })}
                           </tr>
                         ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })()}
+            {simulation &&
+              (() => {
+                const totalSupply = S
+                const usdInPool = simulation.initial.usdInPool
+                // AMM K-preservation: S × X = initialLiquidity × usdInPool
+                // → X = initialLiquidity × usdInPool / S
+                const X = (initialLiquidity * usdInPool) / totalSupply
+                const swapUsd = usdInPool - X
+                const treasuryTokens = totalSupply - initialLiquidity
+                const avgBuyPrice = treasuryTokens > 0 ? swapUsd / treasuryTokens : 0
+                const fmtN = (n: number, d = 2) => n.toFixed(d)
+                const fmtI = (n: number) =>
+                  new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)
+                return (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                      Initial launch
+                    </p>
+                    <table className="w-full text-xs border-collapse">
+                      <tbody>
+                        <tr className="border-b border-border/50">
+                          <td className="text-muted-foreground py-1 pr-2">
+                            Initial token liquidity
+                          </td>
+                          <td className="font-mono font-semibold text-foreground py-1 px-2">
+                            {fmtI(totalSupply)}
+                          </td>
+                          <td className="text-muted-foreground py-1 px-2 text-right">
+                            (pool + treasury {fmtI(treasuryTokens)})
+                          </td>
+                        </tr>
+                        <tr className="border-b border-border/50">
+                          <td className="text-muted-foreground py-1 pr-2">Initial USD liquidity</td>
+                          <td className="font-mono font-semibold text-foreground py-1 px-2">
+                            ${fmtN(X)}
+                          </td>
+                          <td className="text-muted-foreground py-1 px-2 text-right">
+                            (@ ${fmtN(totalSupply > 0 ? X / totalSupply : 0, 6)}/token)
+                          </td>
+                        </tr>
+                        <tr className="border-b border-border/50">
+                          <td className="text-muted-foreground py-1 pr-2">Swap / DCA in</td>
+                          <td className="font-mono font-semibold text-foreground py-1 px-2">
+                            ${fmtN(swapUsd)}
+                          </td>
+                          <td className="text-muted-foreground py-1 px-2 text-right">
+                            (avg @ ${fmtN(avgBuyPrice, 6)}/token)
+                          </td>
+                        </tr>
+                        <tr className="border-b border-border/50">
+                          <td className="text-muted-foreground py-1 pr-2">Token liquidity</td>
+                          <td className="font-mono font-semibold text-foreground py-1 px-2">
+                            {fmtI(initialLiquidity)}
+                          </td>
+                          <td className="text-muted-foreground py-1 px-2 text-right">
+                            ({fmtI(treasuryTokens)} extracted)
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="text-muted-foreground py-1 pr-2">USD liquidity</td>
+                          <td className="font-mono font-semibold text-foreground py-1 px-2">
+                            ${fmtN(usdInPool)}
+                          </td>
+                          <td className="text-muted-foreground py-1 px-2 text-right">
+                            (@ ${fmtN(initialLiquidity > 0 ? usdInPool / initialLiquidity : 0, 6)}
+                            /token)
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
