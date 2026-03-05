@@ -480,10 +480,10 @@ export function RewardChart({ params }: RewardChartProps) {
                 </div>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={300}>
               <ComposedChart
                 data={displayData}
-                margin={{ top: 55, right: 30, left: 50, bottom: 25 }}
+                margin={{ top: 45, right: 30, left: 50, bottom: 20 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
