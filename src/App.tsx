@@ -61,7 +61,7 @@ function App() {
               <CardContent>
                 <div className="text-center text-lg p-4 bg-muted rounded-lg">
                   <InlineMath
-                    math={String.raw`y = a \cdot \frac{1 - \frac{S - T}{T}}{(P+b)^k - p^k} - \frac{a \cdot (1 - \frac{S - T}{T})}{(P+b)^k}`}
+                    math={String.raw`y_p = \frac{2T - S}{T} \cdot a \cdot \left(\frac{1}{(P+b)^k - p^k} - \frac{1}{(P+b)^k}\right)`}
                   />
                 </div>
               </CardContent>
