@@ -7,7 +7,7 @@ import { useState } from 'react'
 
 function App() {
   const [params, setParams] = useState({
-    maxReward: 50_000,
+    maxReward: 5_000,
     b: 3,
     k: 10,
     P: 18,
@@ -15,10 +15,10 @@ function App() {
     emaInitialWeight: 100,
     entryFee: 2.0,
     buybackBurnRatio: 70,
-    T: 10_000_000,
+    T: 1_000_000,
     initialPerformance: 12,
-    price: 0.001,
-    initialLiquidity: 10_000_000,
+    price: 0.01,
+    initialLiquidity: 1_000_000,
     finalPerformance: 14,
     treasuryShare: 20,
     stdDeviation: 1.5,

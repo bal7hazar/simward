@@ -253,8 +253,8 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
           id="t-slider"
           label="Target Supply (T)"
           min={0}
-          max={1_000_000_000}
-          step={5_000_000}
+          max={100_000_000}
+          step={500_000}
           value={params.T}
           format={(v) => fmt(Math.round(v))}
           onChange={(v) => onParamChange('T', v)}
