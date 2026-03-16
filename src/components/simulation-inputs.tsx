@@ -22,6 +22,7 @@ interface SimulationInputsProps {
     initialLiquidity: number
     finalPerformance: number
     stdDeviation: number
+    skewness: number
   }
   onParamChange: (key: string, value: number) => void
 }
@@ -224,13 +225,6 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
           onChange={(v) => onParamChange('initialPerformance', v)}
         />
         <NumberRow
-          id="finalPerformance"
-          label="Final Performance"
-          value={params.finalPerformance}
-          step="0.1"
-          onChange={(v) => onParamChange('finalPerformance', v)}
-        />
-        <NumberRow
           id="emaMaxWeight"
           label="EMA Max Weight"
           value={params.emaMaxWeight}
@@ -325,6 +319,23 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
           value={params.stdDeviation}
           format={(v) => v.toFixed(1)}
           onChange={(v) => onParamChange('stdDeviation', v)}
+        />
+        <SliderRow
+          id="skewness-slider"
+          label="Skewness"
+          min={-10}
+          max={10}
+          step={0.5}
+          value={params.skewness}
+          format={(v) => v.toFixed(1)}
+          onChange={(v) => onParamChange('skewness', v)}
+        />
+        <NumberRow
+          id="finalPerformance"
+          label="Mode (pic)"
+          value={params.finalPerformance}
+          step="0.1"
+          onChange={(v) => onParamChange('finalPerformance', v)}
         />
       </CardContent>
     </Card>
