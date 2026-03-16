@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
+import type React from 'react'
 
 interface SimulationInputsProps {
   params: {
@@ -13,12 +14,13 @@ interface SimulationInputsProps {
     emaInitialWeight: number
     entryFee: number
     buybackBurnRatio: number
+    swapFee: number
     T: number
     initialPerformance: number
-    price: number
+    initialStake: number
+    initialSupply: number
     initialLiquidity: number
     finalPerformance: number
-    treasuryShare: number
     stdDeviation: number
   }
   onParamChange: (key: string, value: number) => void
@@ -126,7 +128,7 @@ function SliderRow({
   onChange,
 }: {
   id: string
-  label: string
+  label: React.ReactNode
   min: number
   max: number
   step: number
@@ -204,6 +206,16 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
         {/* ── Model ────────────────────────────────────────────── */}
         <SectionHeader title="Model" />
 
+        <SliderRow
+          id="entryFee"
+          label="Stake (USD)"
+          min={2}
+          max={20}
+          step={1}
+          value={params.entryFee}
+          format={(v) => `$${Math.round(v)}`}
+          onChange={(v) => onParamChange('entryFee', v)}
+        />
         <NumberRow
           id="initialPerformance"
           label="Initial Performance"
@@ -232,16 +244,13 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
           value={params.emaInitialWeight}
           onChange={(v) => onParamChange('emaInitialWeight', v)}
         />
-        <NumberRow
-          id="entryFee"
-          label="Entry Fee (USD)"
-          value={params.entryFee}
-          step="0.01"
-          onChange={(v) => onParamChange('entryFee', v)}
-        />
         <SliderRow
           id="buyback-slider"
-          label="Burn Ratio"
+          label={
+            <>
+              Burn Ratio (τ<sub>b</sub>)
+            </>
+          }
           min={0}
           max={100}
           step={1}
@@ -253,8 +262,8 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
           id="t-slider"
           label="Target Supply (T)"
           min={0}
-          max={100_000_000}
-          step={500_000}
+          max={10_000_000}
+          step={100_000}
           value={params.T}
           format={(v) => fmt(Math.round(v))}
           onChange={(v) => onParamChange('T', v)}
@@ -263,32 +272,45 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
         {/* ── Initial state ────────────────────────────────────── */}
         <SectionHeader title="Initial state" />
 
-        <NumberRow
-          id="price"
-          label="Initial Price (USD)"
-          value={params.price}
-          step="0.0001"
-          onChange={(v) => onParamChange('price', v)}
+        <SliderRow
+          id="stake-slider"
+          label="Initial Stake (USD)"
+          min={0}
+          max={50_000}
+          step={1_000}
+          value={params.initialStake}
+          format={(v) => `$${fmt(Math.round(v))}`}
+          onChange={(v) => onParamChange('initialStake', v)}
+        />
+        <SliderRow
+          id="supply-slider"
+          label="Initial Supply"
+          min={0}
+          max={10_000_000}
+          step={100_000}
+          value={params.initialSupply}
+          format={(v) => fmt(Math.round(v))}
+          onChange={(v) => onParamChange('initialSupply', v)}
         />
         <SliderRow
           id="liquidity-slider"
           label="Initial Liquidity"
           min={0}
-          max={params.T * 2}
-          step={1_000_000}
+          max={params.initialSupply}
+          step={100_000}
           value={params.initialLiquidity}
           format={(v) => fmt(Math.round(v))}
           onChange={(v) => onParamChange('initialLiquidity', v)}
         />
         <SliderRow
-          id="treasury-share-slider"
-          label="Treasury Share"
+          id="swap-fee-slider"
+          label="Swap Fee"
           min={0}
-          max={50}
+          max={100}
           step={1}
-          value={params.treasuryShare}
+          value={params.swapFee}
           format={(v) => `${Math.round(v)}%`}
-          onChange={(v) => onParamChange('treasuryShare', v)}
+          onChange={(v) => onParamChange('swapFee', v)}
         />
 
         {/* ── Miscellaneous ────────────────────────────────────── */}
