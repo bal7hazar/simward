@@ -9,7 +9,7 @@ function App() {
   const [params, setParams] = useState({
     maxReward: 5_000,
     b: 3,
-    k: 10,
+    k: 5,
     P: 18,
     emaMaxWeight: 1000,
     emaInitialWeight: 100,
@@ -17,12 +17,13 @@ function App() {
     buybackBurnRatio: 70,
     swapFee: 5,
     T: 1_000_000,
-    initialPerformance: 12,
+    initialPerformance: 11,
     initialStake: 10_000,
     initialSupply: 1_000_000,
     initialLiquidity: 800_000,
-    finalPerformance: 14,
-    stdDeviation: 1.5,
+    finalPerformance: 13,
+    stdDeviation: 4,
+    skewness: -4,
   })
 
   const handleParamChange = (key: string, value: number) => {
