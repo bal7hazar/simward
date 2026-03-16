@@ -256,6 +256,8 @@ export function RewardChart({ params }: RewardChartProps) {
     const initial = buildSnapshot(0, supply, tokenReserve, usdReserve, emaNum, emaDenom)
     let target: SimSnapshot | null = null
     let teamShareSnap: SimSnapshot | null = null
+    let teamRevenueSnap: SimSnapshot | null = null
+    let equilibriumSnap: SimSnapshot | null = null
     let seenPaidBelowMint = false
     const teamTokens = S - initialLiquidity
 
@@ -332,23 +334,51 @@ export function RewardChart({ params }: RewardChartProps) {
             teamRevenue
           )
         }
+        if (teamRevenueSnap === null && teamRevenue > initialStake) {
+          teamRevenueSnap = buildSnapshot(
+            games,
+            supply,
+            tokenReserve,
+            usdReserve,
+            emaNum,
+            emaDenom,
+            rewardEma,
+            teamRevenue
+          )
+        }
         const ref = Math.max(burnEma, rewardEma, 1e-10)
-        if (Math.abs(burnEma - rewardEma) / ref <= 0.001) break
+        const equilReached = Math.abs(burnEma - rewardEma) / ref <= 0.001
+        if (equilReached && equilibriumSnap === null) {
+          equilibriumSnap = buildSnapshot(
+            games,
+            supply,
+            tokenReserve,
+            usdReserve,
+            emaNum,
+            emaDenom,
+            rewardEma,
+            teamRevenue
+          )
+        }
+        const roiReached = teamRevenue > initialStake
+        if (equilReached && roiReached) break
       }
     }
 
-    const equilibrium = buildSnapshot(
-      games,
-      supply,
-      tokenReserve,
-      usdReserve,
-      emaNum,
-      emaDenom,
-      rewardEma,
-      teamRevenue
-    )
+    const equilibrium =
+      equilibriumSnap ??
+      buildSnapshot(
+        games,
+        supply,
+        tokenReserve,
+        usdReserve,
+        emaNum,
+        emaDenom,
+        rewardEma,
+        teamRevenue
+      )
 
-    return { initial, target, teamShareSnap, equilibrium, perfCounts }
+    return { initial, target, teamShareSnap, teamRevenueSnap, equilibrium, perfCounts }
   }, [
     a,
     b,
@@ -774,11 +804,13 @@ export function RewardChart({ params }: RewardChartProps) {
                   { label: 'Initial', snap: simulation.initial },
                   { label: 'Decentralization', snap: simulation.teamShareSnap },
                   { label: 'Equilibrium', snap: simulation.equilibrium },
+                  { label: 'ROI', snap: simulation.teamRevenueSnap },
                 ]
                 type Snap = typeof simulation.initial | null
                 const redCells: Record<string, string[]> = {
                   Decentralization: ['Team share'],
                   Equilibrium: ['Burn', 'Avg reward'],
+                  ROI: ['Team revenue'],
                 }
                 const greenCells: Record<string, string[]> = {
                   Initial: ['Break even'],
