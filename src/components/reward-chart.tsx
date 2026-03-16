@@ -198,14 +198,15 @@ export function RewardChart({ params }: RewardChartProps) {
       const multiplierAt2 = alphaS * alphaB
       const avgReward = rewardEmaParam > 0 ? rewardEmaParam : r0AtEma * multiplierAt2
 
-      const eqTarget = avgBurn / tauB
-      let eqLow = 0
-      let eqHigh = P
+      const breakEvenR0 =
+        multiplierAt2 > 0 && curPrice > 0 ? entryFee / (multiplierAt2 * curPrice) : null
       let avgEquilibriumPerf: number | null = null
-      if (eqTarget > 0 && rewardAt(P, sup) >= eqTarget) {
+      if (breakEvenR0 !== null && r0(P) >= breakEvenR0) {
+        let eqLow = 0
+        let eqHigh = P
         for (let i = 0; i < 64; i++) {
           const mid = (eqLow + eqHigh) / 2
-          if (rewardAt(mid, sup) < eqTarget) eqLow = mid
+          if (r0(mid) < breakEvenR0) eqLow = mid
           else eqHigh = mid
         }
         avgEquilibriumPerf = (eqLow + eqHigh) / 2
