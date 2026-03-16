@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { type ReactNode, useMemo } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
 import {
   Area,
+  Bar,
+  BarChart,
   CartesianGrid,
   ComposedChart,
   Line,
@@ -30,6 +32,7 @@ interface RewardChartProps {
     initialLiquidity: number
     finalPerformance: number
     stdDeviation: number
+    skewness: number
   }
 }
 
@@ -48,10 +51,13 @@ export function RewardChart({ params }: RewardChartProps) {
     entryFee,
     finalPerformance,
     stdDeviation,
+    skewness,
     initialPerformance,
     emaInitialWeight,
     emaMaxWeight,
   } = params
+
+  const [copied, setCopied] = useState(false)
 
   // Calculate constant 'a' from maxReward
   // Assuming S = T, formula simplifies to: a = maxReward / [1/((P+b)^k - P^k) - 1/(P+b)^k]
@@ -69,7 +75,32 @@ export function RewardChart({ params }: RewardChartProps) {
 
   const S = initialSupply
 
-  // Full simulation: each game scores finalPerformance until burn ≈ reward
+  const skewNormalXi = useMemo(() => {
+    const sig = Math.max(0.01, stdDeviation)
+    const alpha = skewness
+    const erf = (x: number): number => {
+      const t = 1 / (1 + 0.3275911 * Math.abs(x))
+      const y =
+        1 -
+        t *
+          (0.254829592 +
+            t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429)))) *
+          Math.exp(-x * x)
+      return x >= 0 ? y : -y
+    }
+    const snPdf = (t: number) => Math.exp((-t * t) / 2) / Math.sqrt(2 * Math.PI)
+    const snCdf = (t: number) => 0.5 * (1 + erf(t / Math.sqrt(2)))
+    let lo = -10
+    let hi = 10
+    for (let i = 0; i < 100; i++) {
+      const m1 = lo + (hi - lo) / 3
+      const m2 = hi - (hi - lo) / 3
+      if (snPdf(m1) * snCdf(alpha * m1) < snPdf(m2) * snCdf(alpha * m2)) lo = m1
+      else hi = m2
+    }
+    return finalPerformance - sig * ((lo + hi) / 2)
+  }, [finalPerformance, stdDeviation, skewness])
+
   const simulation = useMemo(() => {
     if (initialLiquidity <= 0 || initialStake <= 0 || a <= 0) return null
 
@@ -87,6 +118,35 @@ export function RewardChart({ params }: RewardChartProps) {
     }
 
     const tauB = buybackBurnRatio / 100
+
+    const sigma = Math.max(0.01, stdDeviation)
+    const delta = skewness / Math.sqrt(1 + skewness * skewness)
+
+    let bmSpare: number | null = null
+    const randNormal = (): number => {
+      if (bmSpare !== null) {
+        const spare = bmSpare
+        bmSpare = null
+        return spare
+      }
+      let u = 0
+      let v = 0
+      let s = 0
+      do {
+        u = Math.random() * 2 - 1
+        v = Math.random() * 2 - 1
+        s = u * u + v * v
+      } while (s >= 1 || s === 0)
+      const mul = Math.sqrt((-2 * Math.log(s)) / s)
+      bmSpare = v * mul
+      return u * mul
+    }
+    const samplePerf = (): number => {
+      const z0 = Math.abs(randNormal())
+      const w = randNormal()
+      const raw = skewNormalXi + sigma * (delta * z0 + Math.sqrt(1 - delta * delta) * w)
+      return Math.max(0, Math.min(P, raw))
+    }
 
     type SimSnapshot = {
       games: number
@@ -106,6 +166,8 @@ export function RewardChart({ params }: RewardChartProps) {
       r0AtEma: number
       burn: number
       paid: number
+      rewardEmaSnap: number
+      teamRevenue: number
     }
 
     const buildSnapshot = (
@@ -114,7 +176,9 @@ export function RewardChart({ params }: RewardChartProps) {
       tokR: number,
       usdR: number,
       eNum: number,
-      eDen: number
+      eDen: number,
+      rewardEmaParam = 0,
+      teamRevenueParam = 0
     ): SimSnapshot => {
       const emaAvg = eNum / eDen
       const curPrice = usdR / tokR
@@ -132,7 +196,7 @@ export function RewardChart({ params }: RewardChartProps) {
       const r0AtEma = r0(emaAvg)
       const alphaB = r0AtEma > 0 ? burned2 / r0AtEma : 0
       const multiplierAt2 = alphaS * alphaB
-      const avgReward = alphaS * alphaB * r0(finalPerformance)
+      const avgReward = rewardEmaParam > 0 ? rewardEmaParam : r0AtEma * multiplierAt2
 
       const eqTarget = avgBurn / tauB
       let eqLow = 0
@@ -171,6 +235,8 @@ export function RewardChart({ params }: RewardChartProps) {
         r0AtEma,
         burn: burned2,
         paid,
+        rewardEmaSnap: rewardEmaParam,
+        teamRevenue: teamRevenueParam,
       }
     }
 
@@ -181,17 +247,26 @@ export function RewardChart({ params }: RewardChartProps) {
     let emaDenom = emaInitialWeight
     let games = 0
     const maxGames = 100_000
+    let rewardEma = 0
+    let burnEma = 0
+    let teamRevenue = 0
+    const perfCounts = new Array(Math.floor(P) + 1).fill(0) as number[]
 
     const initial = buildSnapshot(0, supply, tokenReserve, usdReserve, emaNum, emaDenom)
     let target: SimSnapshot | null = null
+    let teamShareSnap: SimSnapshot | null = null
     let seenPaidBelowMint = false
+    const teamTokens = S - initialLiquidity
 
     while (games < maxGames) {
       games++
 
       const emaAvg = emaNum / emaDenom
 
-      // Buy+burn with actual $2 entry fee (price evolves each game via AMM)
+      const totalMinted = supply - initialLiquidity
+      const teamShareFrac = totalMinted > 0 ? teamTokens / totalMinted : 0
+      teamRevenue += entryFee * (1 - buybackBurnRatio / 100) * teamShareFrac
+
       const usdForBurn = entryFee * (buybackBurnRatio / 100) * (1 - swapFee / 100)
       const kAmm = tokenReserve * usdReserve
       const newUsdReserve = usdReserve + usdForBurn
@@ -201,10 +276,15 @@ export function RewardChart({ params }: RewardChartProps) {
 
       supply -= tokensBurned
 
+      const sampledPerf = samplePerf()
+      perfCounts[Math.min(Math.floor(P), Math.floor(sampledPerf))]++
       const alphaS_v = T > 0 ? (2 * T - supply) / T : 0
       const r0AtEma_v = r0(emaAvg)
       const alphaB_v = r0AtEma_v > 0 ? tokensBurned / r0AtEma_v : 0
-      const reward = alphaS_v * alphaB_v * r0(finalPerformance)
+      const reward = alphaS_v * alphaB_v * r0(sampledPerf)
+      const decay = 1 / Math.min(games, emaMaxWeight)
+      rewardEma = games === 1 ? reward : rewardEma + (reward - rewardEma) * decay
+      burnEma = games === 1 ? tokensBurned : burnEma + (tokensBurned - burnEma) * decay
       supply += reward
 
       const kAmm2 = tokenReserve * usdReserve
@@ -213,27 +293,61 @@ export function RewardChart({ params }: RewardChartProps) {
 
       if (emaDenom < emaMaxWeight) {
         emaDenom += 1
-        emaNum += finalPerformance
+        emaNum += sampledPerf
       } else {
-        emaNum = emaNum - emaNum / emaDenom + finalPerformance
+        emaNum = emaNum - emaNum / emaDenom + sampledPerf
       }
 
       const usdForPaid = entryFee * (1 - swapFee / 100)
       const kSnap = tokenReserve * usdReserve
       const snapPaid = tokenReserve - kSnap / (usdReserve + usdForPaid)
-      if (snapPaid <= reward) seenPaidBelowMint = true
-      if (target === null && seenPaidBelowMint && snapPaid > reward) {
-        target = buildSnapshot(games, supply, tokenReserve, usdReserve, emaNum, emaDenom)
+      if (games >= emaMaxWeight) {
+        if (snapPaid <= rewardEma) seenPaidBelowMint = true
+        if (target === null && seenPaidBelowMint && snapPaid > rewardEma) {
+          target = buildSnapshot(
+            games,
+            supply,
+            tokenReserve,
+            usdReserve,
+            emaNum,
+            emaDenom,
+            rewardEma,
+            teamRevenue
+          )
+        }
+        if (
+          teamShareSnap === null &&
+          supply > initialLiquidity &&
+          (teamTokens / (supply - initialLiquidity)) * 100 < 50
+        ) {
+          teamShareSnap = buildSnapshot(
+            games,
+            supply,
+            tokenReserve,
+            usdReserve,
+            emaNum,
+            emaDenom,
+            rewardEma,
+            teamRevenue
+          )
+        }
+        const ref = Math.max(burnEma, rewardEma, 1e-10)
+        if (Math.abs(burnEma - rewardEma) / ref <= 0.001) break
       }
-
-      // Convergence: burn ≈ reward within 0.1% relative tolerance
-      const ref = Math.max(tokensBurned, reward, 1e-10)
-      if (Math.abs(tokensBurned - reward) / ref <= 0.001) break
     }
 
-    const equilibrium = buildSnapshot(games, supply, tokenReserve, usdReserve, emaNum, emaDenom)
+    const equilibrium = buildSnapshot(
+      games,
+      supply,
+      tokenReserve,
+      usdReserve,
+      emaNum,
+      emaDenom,
+      rewardEma,
+      teamRevenue
+    )
 
-    return { initial, target, equilibrium }
+    return { initial, target, teamShareSnap, equilibrium, perfCounts }
   }, [
     a,
     b,
@@ -247,12 +361,13 @@ export function RewardChart({ params }: RewardChartProps) {
     buybackBurnRatio,
     swapFee,
     initialPerformance,
-    finalPerformance,
+    stdDeviation,
+    skewness,
+    skewNormalXi,
     emaInitialWeight,
     emaMaxWeight,
   ])
 
-  // Generate curve data with normal distribution (points at integer p only)
   const { chartData } = useMemo(() => {
     const data: {
       p: number
@@ -262,7 +377,21 @@ export function RewardChart({ params }: RewardChartProps) {
     }[] = []
     const step = 1
     const sigma = Math.max(0.01, stdDeviation)
-    const mu = finalPerformance
+    const alpha = skewness
+    const xi = skewNormalXi
+
+    const erfApprox = (x: number): number => {
+      const t = 1 / (1 + 0.3275911 * Math.abs(x))
+      const y =
+        1 -
+        t *
+          (0.254829592 +
+            t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429)))) *
+          Math.exp(-x * x)
+      return x >= 0 ? y : -y
+    }
+    const snPdf = (t: number) => Math.exp((-t * t) / 2) / Math.sqrt(2 * Math.PI)
+    const snCdf = (t: number) => 0.5 * (1 + erfApprox(t / Math.sqrt(2)))
 
     for (let p = 0; p <= P; p += step) {
       const numerator = a * (1 - (S - T) / T)
@@ -273,8 +402,8 @@ export function RewardChart({ params }: RewardChartProps) {
       const y2 = term2 !== 0 ? numerator / term2 : 0
       const y = y1 - y2 + p
 
-      const exponent = -((p - mu) ** 2) / (2 * sigma ** 2)
-      const density = Math.exp(exponent)
+      const t = (p - xi) / sigma
+      const density = (2 / sigma) * snPdf(t) * snCdf(alpha * t)
 
       data.push({
         p: Math.round(p),
@@ -315,7 +444,7 @@ export function RewardChart({ params }: RewardChartProps) {
     })
 
     return { chartData: chartDataWithDist }
-  }, [a, b, k, P, T, S, initialStake, initialLiquidity, finalPerformance, stdDeviation])
+  }, [a, b, k, P, T, S, initialStake, initialLiquidity, stdDeviation, skewness, skewNormalXi])
 
   // Chart data with both curves scaled by their respective multipliers from simulation
   const chartDataWithFinal = useMemo(() => {
@@ -629,7 +758,7 @@ export function RewardChart({ params }: RewardChartProps) {
           <div className="mt-4 pt-4 border-t border-border space-y-3 overflow-y-auto flex-1 scrollbar-none [&::-webkit-scrollbar]:hidden">
             <div className="flex gap-4 text-sm text-muted-foreground">
               <span>
-                Constant a:{' '}
+                Constant A:{' '}
                 <span className="font-mono font-semibold text-foreground">
                   {new Intl.NumberFormat('en-US').format(Math.round(a))}
                 </span>
@@ -642,20 +771,25 @@ export function RewardChart({ params }: RewardChartProps) {
                   new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)
                 const cols: { label: string; snap: typeof simulation.initial | null }[] = [
                   { label: 'Initial', snap: simulation.initial },
-                  { label: 'Inflexion', snap: simulation.target },
+                  { label: 'Decentralization', snap: simulation.teamShareSnap },
                   { label: 'Equilibrium', snap: simulation.equilibrium },
                 ]
                 type Snap = typeof simulation.initial | null
                 const redCells: Record<string, string[]> = {
-                  Inflexion: ['Paid', 'Avg reward'],
+                  Decentralization: ['Team share'],
                   Equilibrium: ['Burn', 'Avg reward'],
                 }
                 const greenCells: Record<string, string[]> = {
                   Initial: ['Break even'],
-                  Inflexion: ['Break even'],
+                  Decentralization: ['Break even'],
                   Equilibrium: ['Break even'],
                 }
-                const rows: { key: string; label: ReactNode; render: (snap: Snap) => string }[] = [
+                const rows: {
+                  key: string
+                  label: ReactNode
+                  textLabel?: string
+                  render: (snap: Snap) => string
+                }[] = [
                   {
                     key: 'Games',
                     label: 'Games',
@@ -682,6 +816,11 @@ export function RewardChart({ params }: RewardChartProps) {
                           : `${fmt(s.treasurySharePct, 2)}%`,
                   },
                   {
+                    key: 'Team revenue',
+                    label: 'Team revenue',
+                    render: (s) => (s == null ? '—' : `$${fmt(s.teamRevenue, 2)}`),
+                  },
+                  {
                     key: 'USD in pool',
                     label: 'USD in pool',
                     render: (s) => (s == null ? '—' : `$${fmt(s.usdInPool, 2)}`),
@@ -703,6 +842,7 @@ export function RewardChart({ params }: RewardChartProps) {
                   },
                   {
                     key: 'Avg burn',
+                    textLabel: 'Mint at. p̄',
                     label: (
                       <span>
                         Mint at. <span style={{ textDecoration: 'overline' }}>p</span>
@@ -712,6 +852,7 @@ export function RewardChart({ params }: RewardChartProps) {
                   },
                   {
                     key: 'alpha_s',
+                    textLabel: 'αs',
                     label: (
                       <span>
                         α<sub>s</sub>
@@ -721,6 +862,7 @@ export function RewardChart({ params }: RewardChartProps) {
                   },
                   {
                     key: 'alpha_b',
+                    textLabel: 'αb',
                     label: (
                       <span>
                         α<sub>b</sub>
@@ -754,8 +896,34 @@ export function RewardChart({ params }: RewardChartProps) {
                     render: (s) => (s == null ? '—' : `$${fmt(s.maxRewardUsd, 4)}`),
                   },
                 ]
+                const copyAsMarkdown = () => {
+                  const header = `|  | ${cols.map((c) => c.label).join(' | ')} |`
+                  const separator = `| --- | ${cols.map(() => '---').join(' | ')} |`
+                  const rowLines = rows.map((row) => {
+                    const tl =
+                      row.textLabel ?? (typeof row.label === 'string' ? row.label : row.key)
+                    const cells = cols.map((c) => row.render(c.snap))
+                    return `| ${tl} | ${cells.join(' | ')} |`
+                  })
+                  navigator.clipboard
+                    .writeText([header, separator, ...rowLines].join('\n'))
+                    .then(() => {
+                      setCopied(true)
+                      setTimeout(() => setCopied(false), 2000)
+                    })
+                }
+
                 return (
                   <div>
+                    <div className="flex justify-end mb-1">
+                      <button
+                        type="button"
+                        onClick={copyAsMarkdown}
+                        className="text-xs px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+                      >
+                        {copied ? '✓ Copied' : 'Copy MD'}
+                      </button>
+                    </div>
                     <table className="w-full text-xs border-collapse">
                       <thead>
                         <tr>
@@ -863,6 +1031,70 @@ export function RewardChart({ params }: RewardChartProps) {
                         </tr>
                       </tbody>
                     </table>
+                  </div>
+                )
+              })()}
+            {simulation &&
+              (() => {
+                const total = simulation.perfCounts.reduce((a, b) => a + b, 0)
+                const totalTheo = chartData.reduce((s, d) => s + d.distributionDensity, 0)
+                const histData = simulation.perfCounts.map((count, p) => ({
+                  p,
+                  count,
+                  empirical: total > 0 ? count / total : 0,
+                  theoretical:
+                    totalTheo > 0 ? (chartData[p]?.distributionDensity ?? 0) / totalTheo : 0,
+                }))
+                return (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                      Performance distribution
+                    </p>
+                    <ResponsiveContainer width="100%" height={120}>
+                      <BarChart
+                        data={histData}
+                        margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="p" tick={{ fontSize: 10 }} interval={1} />
+                        <YAxis
+                          tick={{ fontSize: 10 }}
+                          tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
+                        />
+                        <Tooltip
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload?.length) return null
+                            const d = payload[0].payload as { count: number }
+                            return (
+                              <div className="bg-background/95 border border-border rounded px-2 py-1.5 text-xs shadow">
+                                <p className="font-medium mb-1">p = {label}</p>
+                                {payload.map((entry) => (
+                                  <p key={entry.dataKey as string} style={{ color: entry.color }}>
+                                    {entry.dataKey === 'empirical'
+                                      ? `Observed: ${((entry.value as number) * 100).toFixed(2)}% (${new Intl.NumberFormat('en-US').format(d.count)})`
+                                      : `Theoretical: ${((entry.value as number) * 100).toFixed(2)}%`}
+                                  </p>
+                                ))}
+                              </div>
+                            )
+                          }}
+                        />
+                        <Bar
+                          dataKey="empirical"
+                          fill="#7c3aed"
+                          opacity={0.6}
+                          isAnimationActive={false}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="theoretical"
+                          stroke="#ef4444"
+                          strokeWidth={1.5}
+                          dot={false}
+                          isAnimationActive={false}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 )
               })()}
