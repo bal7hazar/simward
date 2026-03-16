@@ -1,7 +1,7 @@
 import { RewardChart } from '@/components/reward-chart'
 import { SimulationInputs } from '@/components/simulation-inputs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { InlineMath } from 'react-katex'
+import { BlockMath } from 'react-katex'
 import 'katex/dist/katex.min.css'
 import { useState } from 'react'
 
@@ -15,12 +15,13 @@ function App() {
     emaInitialWeight: 100,
     entryFee: 2.0,
     buybackBurnRatio: 70,
+    swapFee: 5,
     T: 1_000_000,
     initialPerformance: 12,
-    price: 0.01,
-    initialLiquidity: 1_000_000,
+    initialStake: 10_000,
+    initialSupply: 1_000_000,
+    initialLiquidity: 800_000,
     finalPerformance: 14,
-    treasuryShare: 20,
     stdDeviation: 1.5,
   })
 
@@ -35,8 +36,11 @@ function App() {
       if (key === 'buybackBurnRatio') {
         next.buybackBurnRatio = Math.max(0, Math.min(100, Math.round(value)))
       }
-      if (key === 'T') {
-        if (prev.initialLiquidity > value * 2) next.initialLiquidity = value * 2
+      if (key === 'swapFee') {
+        next.swapFee = Math.max(0, Math.min(100, Math.round(value)))
+      }
+      if (key === 'initialSupply') {
+        if (prev.initialLiquidity > value) next.initialLiquidity = value
       }
       return next
     })
@@ -59,9 +63,16 @@ function App() {
                 <CardTitle>Formula</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center text-lg p-4 bg-muted rounded-lg">
-                  <InlineMath
-                    math={String.raw`y_p = \frac{2T - S}{T} \cdot a \cdot \left(\frac{1}{(P+b)^k - p^k} - \frac{1}{(P+b)^k}\right)`}
+                <div className="text-center text-base p-4 bg-muted rounded-lg overflow-x-auto [&_.katex]:text-base">
+                  <BlockMath
+                    math={String.raw`
+\begin{aligned}
+r_0(p) &= A \cdot \left(\frac{1}{(P+b)^k - p^k} - \frac{1}{(P+b)^k}\right) + p \\
+\alpha_s &= \frac{2T - S}{T} \\
+\alpha_b(\text{burn}) &= \frac{\text{burn}}{r_0(\bar{p})} \\
+\boldsymbol{r(p,\text{burn})} &= \boldsymbol{\alpha_s \cdot \alpha_b(\text{burn}) \cdot r_0(p) = \alpha \cdot r_0(p)}
+\end{aligned}
+`}
                   />
                 </div>
               </CardContent>
