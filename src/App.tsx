@@ -34,7 +34,7 @@ const presets: { name: string; params: typeof defaultParams }[] = [
       ...defaultParams,
       beta: 0,
       k: 1,
-      b: 162,
+      b: 205,
       initialPerformance: 148,
       P: 524,
       finalPerformance: 148,
