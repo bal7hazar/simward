@@ -33,6 +33,7 @@ interface RewardChartProps {
     finalPerformance: number
     stdDeviation: number
     skewness: number
+    beta: number
   }
 }
 
@@ -52,6 +53,7 @@ export function RewardChart({ params }: RewardChartProps) {
     finalPerformance,
     stdDeviation,
     skewness,
+    beta,
     initialPerformance,
     emaInitialWeight,
     emaMaxWeight,
@@ -70,8 +72,8 @@ export function RewardChart({ params }: RewardChartProps) {
     const denominator = 1 / term1 - 1 / term2
     if (denominator === 0) return 0
 
-    return maxReward / denominator
-  }, [maxReward, b, k, P])
+    return (maxReward - beta * P) / denominator
+  }, [maxReward, b, k, P, beta])
 
   const S = initialSupply
 
@@ -104,17 +106,15 @@ export function RewardChart({ params }: RewardChartProps) {
   const simulation = useMemo(() => {
     if (initialLiquidity <= 0 || initialStake <= 0 || a <= 0) return null
 
-    const rewardAt = (p: number, s: number): number => {
-      const num = a * (1 - (s - T) / T)
-      const t1 = (P + b) ** k - p ** k
-      const t2 = (P + b) ** k
-      return Math.max(0, (t1 !== 0 ? num / t1 : 0) - (t2 !== 0 ? num / t2 : 0))
-    }
-
     const r0 = (p: number): number => {
       const t1 = (P + b) ** k - p ** k
       const t2 = (P + b) ** k
-      return Math.max(0, (t1 !== 0 ? a / t1 : 0) - (t2 !== 0 ? a / t2 : 0) + p)
+      return Math.max(0, (t1 !== 0 ? a / t1 : 0) - (t2 !== 0 ? a / t2 : 0) + beta * p)
+    }
+
+    const rewardAt = (p: number, s: number): number => {
+      const alphaS = T > 0 ? (2 * T - s) / T : 0
+      return Math.max(0, alphaS * r0(p))
     }
 
     const tauB = buybackBurnRatio / 100
@@ -397,6 +397,7 @@ export function RewardChart({ params }: RewardChartProps) {
     skewNormalXi,
     emaInitialWeight,
     emaMaxWeight,
+    beta,
   ])
 
   const { chartData } = useMemo(() => {
@@ -431,7 +432,7 @@ export function RewardChart({ params }: RewardChartProps) {
 
       const y1 = term1 !== 0 ? numerator / term1 : 0
       const y2 = term2 !== 0 ? numerator / term2 : 0
-      const y = y1 - y2 + p
+      const y = y1 - y2 + beta * p
 
       const t = (p - xi) / sigma
       const density = (2 / sigma) * snPdf(t) * snCdf(alpha * t)
@@ -475,7 +476,7 @@ export function RewardChart({ params }: RewardChartProps) {
     })
 
     return { chartData: chartDataWithDist }
-  }, [a, b, k, P, T, S, initialStake, initialLiquidity, stdDeviation, skewness, skewNormalXi])
+  }, [a, b, k, P, T, S, initialStake, initialLiquidity, stdDeviation, skewness, skewNormalXi, beta])
 
   // Chart data with both curves scaled by their respective multipliers from simulation
   const chartDataWithFinal = useMemo(() => {
@@ -484,7 +485,7 @@ export function RewardChart({ params }: RewardChartProps) {
     const r0 = (p: number): number => {
       const t1 = (P + b) ** k - p ** k
       const t2 = (P + b) ** k
-      return Math.max(0, (t1 !== 0 ? a / t1 : 0) - (t2 !== 0 ? a / t2 : 0) + p)
+      return Math.max(0, (t1 !== 0 ? a / t1 : 0) - (t2 !== 0 ? a / t2 : 0) + beta * p)
     }
 
     const initMult = simulation.initial.multiplierAt2
@@ -503,7 +504,7 @@ export function RewardChart({ params }: RewardChartProps) {
         yUsdFinal: Number((yFinalTokens * equilPrice).toFixed(4)),
       }
     })
-  }, [chartData, simulation, a, b, k, P])
+  }, [chartData, simulation, a, b, k, P, beta])
 
   // Break-even points from simulation snapshots
   const equilibriumBreakEvenPoint = simulation?.equilibrium.avgEquilibriumPerf ?? null

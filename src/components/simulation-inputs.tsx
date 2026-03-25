@@ -23,6 +23,7 @@ interface SimulationInputsProps {
     finalPerformance: number
     stdDeviation: number
     skewness: number
+    beta: number
   }
   onParamChange: (key: string, value: number) => void
 }
@@ -178,6 +179,13 @@ export function SimulationInputs({ params, onParamChange }: SimulationInputsProp
           value={params.maxReward}
           step="1"
           onChange={(v) => onParamChange('maxReward', v)}
+        />
+        <NumberRow
+          id="beta"
+          label="β (linear coeff.)"
+          value={params.beta}
+          step="0.1"
+          onChange={(v) => onParamChange('beta', v)}
         />
         <NumberRow
           id="k"
